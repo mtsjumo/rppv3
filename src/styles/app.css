@@ -931,6 +931,22 @@ body {
 .preview-empty { padding: 56px 20px; border: 1px dashed #cbd9db; border-radius: 6px; background: #f8fbfb; }
 .export-bar { background: #eef5f5; border-radius: 6px; }
 
+/* v3: badge versi + baris auth Puter di panel pengaturan */
+.version-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: #153f45;
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+.puter-auth-row { display: flex; align-items: center; gap: 10px; }
+#puter-status { font-size: 0.85rem; }
+#puter-quota { font-size: 0.8rem; color: var(--text-secondary); }
+
 @media (max-width: 768px) {
   .app-header { align-items: flex-start; flex-direction: column; padding: 12px 14px; }
   .header-actions { width: 100%; }

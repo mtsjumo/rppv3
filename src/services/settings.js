@@ -6,7 +6,7 @@ import { store, initialSettings } from '../core/store.js';
 import { STORAGE_KEYS, readJson, writeJson } from '../core/storage.js';
 import { withCorsProxy } from './ai-provider.js';
 import { showToast } from '../ui/toast.js';
-import { DEFAULT_WORKER_URL, OPENROUTER_BASE, POOLSIDE_BASE } from '../config.js';
+import { DEFAULT_WORKER_URL, OPENROUTER_BASE, POOLSIDE_BASE, PUTER_DEFAULT_MODEL } from '../config.js';
 
 /** Muat pengaturan dari localStorage dan terapkan ke state. */
 export function loadSettings() {
@@ -23,7 +23,8 @@ export function loadSettings() {
   // simpanan. (Versi lama hanya menerapkan default bila sudah ada simpanan —
   // itu sebabnya kolom Worker pernah kosong.)
   const s = store.state.settings;
-  if (!s.provider) s.provider = 'openrouter';
+  if (!s.provider) s.provider = 'puter';
+  if (!s.puterModel) s.puterModel = PUTER_DEFAULT_MODEL;
   if (!s.poolsideModel) s.poolsideModel = 'poolside/laguna-s-2.1';
   if (!s.corsProxy) s.corsProxy = DEFAULT_WORKER_URL;
   if (!s.fallbackModel) s.fallbackModel = 'openrouter/free';
@@ -37,9 +38,10 @@ export function persistSettings() {
   return writeJson(STORAGE_KEYS.settings, store.state.settings);
 }
 
-/** API key aktif untuk provider aktif. */
+/** API key aktif untuk provider aktif (Puter tidak pakai key). */
 export function activeApiKey() {
   const s = store.state.settings;
+  if (s.provider === 'puter') return '';
   return s.provider === 'poolside' ? s.poolsideKey || '' : s.openRouterKey || s.apiKey || '';
 }
 
@@ -48,7 +50,8 @@ export function activeApiKey() {
  * @returns {Promise<{ok: boolean, message: string}>}
  */
 export async function testConnection() {
-  const provider = store.state.settings.provider || 'openrouter';
+  const provider = store.state.settings.provider || 'puter';
+  if (provider === 'puter') return testPuterConnection();
   const key = activeApiKey();
 
   if (!key) {
@@ -103,9 +106,37 @@ export async function testConnection() {
   }
 }
 
+/** Uji login + satu panggilan ringan ke Puter (tanpa API key). */
+async function testPuterConnection() {
+  const puter = globalThis.puter;
+  if (!puter?.ai?.chat) {
+    return { ok: false, message: '❌ Puter.js gagal dimuat (CDN diblokir?)' };
+  }
+  try {
+    if (!(await puter.auth?.isSignedIn?.())) {
+      return { ok: false, message: '❌ Belum login Puter — klik Login Puter dulu' };
+    }
+    const user = await puter.auth.getUser().catch(() => null);
+    const resp = await puter.ai.chat('Balas hanya dengan kata: ok', {
+      model: PUTER_DEFAULT_MODEL,
+      max_tokens: 10,
+      normalize: true,
+    });
+    const text = resp?.message?.content?.toString?.() ?? '';
+    if (!text) return { ok: false, message: '❌ Puter membalas kosong' };
+    return { ok: true, message: `✅ Puter: login ${user?.username ? `sebagai ${user.username}` : 'ok'} — AI merespons` };
+  } catch (e) {
+    return { ok: false, message: `❌ ${e.message || e}` };
+  }
+}
+
 /** Simpan pengaturan saat test API berhasil (key baru langsung terpakai). */
 export function adoptTestedKey() {
   const s = store.state.settings;
+  if (s.provider === 'puter') {
+    persistSettings();
+    return;
+  }
   if (s.provider === 'poolside') {
     s.poolsideKey = s.poolsideKey || '';
   } else {

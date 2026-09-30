@@ -23,6 +23,22 @@ export const DEFAULT_WORKER_URL = 'https://rpp.andys-riyans.workers.dev/?url=';
 export const POOLSIDE_BASE = 'https://inference.poolside.ai/v1';
 export const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 
+/**
+ * Tier model Puter.js (dipakai bila provider aktif = 'puter').
+ *
+ * Tanpa API key — tiap guru login pakai akun Puter sendiri (User-Pays) dan
+ * kuota terpakai dari akun masing-masing. Default = hemat agar jatah gratis
+ * tidak cepat habis; sub-phase berat (RPP Core, evaluasi) disarankan canggih.
+ */
+export const PUTER_MODELS = {
+  hemat: 'gpt-5-nano',
+  seimbang: 'gpt-5.4-nano',
+  canggih: 'claude-sonnet-5',
+};
+
+/** Model Puter default (tier hemat = default bawaan Puter juga). */
+export const PUTER_DEFAULT_MODEL = PUTER_MODELS.hemat;
+
 /** Batas token per panggilan API per sub-phase. */
 export const TOKEN_LIMITS = {
   '1a': 12000,

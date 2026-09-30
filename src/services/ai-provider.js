@@ -19,6 +19,7 @@ import { friendlyError } from './json.js';
 import {
   OPENROUTER_BASE,
   POOLSIDE_BASE,
+  PUTER_DEFAULT_MODEL,
   REQUEST_HARD_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
 } from '../config.js';
@@ -47,14 +48,18 @@ export function currentProvider() {
   return store.state.settings.provider || 'openrouter';
 }
 
-/** API key untuk provider aktif. */
+/** API key untuk provider aktif. Puter tidak pakai key (login akun). */
 export function currentApiKey() {
   const s = store.state.settings;
+  if (currentProvider() === 'puter') return '';
   return currentProvider() === 'poolside' ? s.poolsideKey || '' : s.openRouterKey || s.apiKey || '';
 }
 
 /** Pesan error bila key belum diisi. */
 function missingKeyMessage() {
+  if (currentProvider() === 'puter') {
+    return 'Belum login Puter. Buka ⚙️ Pengaturan, klik Login Puter.';
+  }
   return currentProvider() === 'poolside'
     ? 'Poolside API Key belum diisi. Buka ⚙️ Pengaturan, pilih provider Poolside.'
     : 'API Key belum diisi. Buka ⚙️ Pengaturan.';
@@ -92,9 +97,6 @@ export async function callAIProvider(
   const wantStream = opts.stream ?? typeof onProgress === 'function';
 
   const provider = currentProvider();
-  const key = currentApiKey();
-  if (!key) throw new Error(missingKeyMessage());
-  if (signal?.aborted) throw abortError();
 
   const controller = new AbortController();
   let abortReason = null;
@@ -112,7 +114,36 @@ export async function callAIProvider(
   const hardTimer = setTimeout(() => abort('hard'), REQUEST_HARD_TIMEOUT_MS);
   const onUserAbort = () => abort('user');
   signal?.addEventListener('abort', onUserAbort, { once: true });
+  const cleanupTimers = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    clearTimeout(hardTimer);
+    signal?.removeEventListener('abort', onUserAbort);
+  };
   armIdle();
+
+  if (provider === 'puter') {
+    // Puter: tanpa key, tanpa fetch, tanpa CORS proxy. Timer & pembatalan
+    // tetap berlaku lewat controller yang sama seperti jalur fetch.
+    try {
+      return await callPuter(model, messages, maxTokens, {
+        onProgress,
+        signal,
+        armIdle,
+        controller,
+      });
+    } finally {
+      cleanupTimers();
+    }
+  }
+  const key = currentApiKey();
+  if (!key) {
+    cleanupTimers();
+    throw new Error(missingKeyMessage());
+  }
+  if (signal?.aborted) {
+    cleanupTimers();
+    throw abortError();
+  }
 
   try {
     const isPoolside = provider === 'poolside';
@@ -186,6 +217,99 @@ export async function callAIProvider(
     clearTimeout(hardTimer);
     signal?.removeEventListener('abort', onUserAbort);
   }
+}
+
+/**
+ * Satu panggilan lewat Puter.js (global `puter` dari CDN js.puter.com).
+ *
+ * Kontrak sama seperti jalur fetch: mengembalikan string konten, mendukung
+ * `onProgress` (streaming) dan `signal` (batal). Bedanya: tanpa API key
+ * (auth = login akun Puter guru = User-Pays) dan tanpa CORS proxy —
+ * Puter mengizinkan panggilan langsung dari browser.
+ *
+ * `normalize: true` memaksa respons format OpenAI (`message.content` string)
+ * di semua vendor, supaya `extractJSON()` di ai-client tidak perlu tahu
+ * bentuk native Anthropic (array content-block).
+ *
+ * @returns {Promise<string>} konten teks dari model
+ */
+async function callPuter(model, messages, maxTokens, { onProgress, signal, armIdle, controller }) {
+  const puter = globalThis.puter;
+  if (!puter?.ai?.chat) {
+    throw new Error(
+      'Puter.js gagal dimuat (CDN js.puter.com diblokir?). Periksa koneksi lalu muat ulang halaman.'
+    );
+  }
+  if (!(await puter.auth?.isSignedIn?.())) {
+    throw new Error('Belum login Puter. Buka ⚙️ Pengaturan, klik Login Puter.');
+  }
+  if (signal?.aborted || controller.signal.aborted) throw abortError();
+
+  emit('ai:request', { model, provider: 'puter', phase: messages?.[0]?.meta?.phase });
+  armIdle();
+
+  // Timer tidak bisa membatalkan promise Puter secara langsung, jadi
+  // dilombakan dengan promise yang menolak saat controller di-abort
+  // (idle/hard timeout maupun tombol Batal). `abortReason` di pemanggil
+  // menentukan pesan akhirnya (timeout vs dibatalkan pengguna).
+  const abortPromise = new Promise((_, reject) => {
+    if (controller.signal.aborted) {
+      reject(abortError());
+      return;
+    }
+    controller.signal.addEventListener('abort', () => reject(abortError()), { once: true });
+  });
+
+  const task = (async () => {
+    const options = { model, temperature: 0.3, max_tokens: maxTokens, normalize: true };
+    if (typeof onProgress !== 'function') {
+      const resp = await puter.ai.chat(messages, options);
+      armIdle();
+      const text = extractPuterContent(resp);
+      emit('ai:response', { model, provider: 'puter' });
+      return text;
+    }
+
+    let text = '';
+    let lastReport = 0;
+    const report = (thinking) => {
+      const now = Date.now();
+      if (now - lastReport < PROGRESS_THROTTLE_MS) return;
+      lastReport = now;
+      onProgress({ chars: text.length, thinking });
+    };
+    const stream = await puter.ai.chat(messages, { ...options, stream: true });
+    for await (const part of stream) {
+      if (signal?.aborted || controller.signal.aborted) throw abortError();
+      armIdle();
+      if (typeof part?.text === 'string' && part.text) text += part.text;
+      report(!text.length && !!part?.reasoning);
+    }
+    onProgress({ chars: text.length, thinking: false });
+    if (!text) throw new Error('AI mengembalikan konten kosong');
+    emit('ai:response', { model, provider: 'puter' });
+    return text;
+  })();
+
+  return Promise.race([task, abortPromise]);
+}
+
+/**
+ * Ambil konten teks dari respons puter.ai.chat() yang sudah dinormalisasi.
+ * Berbeda dengan extractContent() (bentuk OpenAI `choices`), respons Puter
+ * menaruh pesan langsung di `message`.
+ */
+function extractPuterContent(resp) {
+  const msg = resp?.message || {};
+  let content = msg.content;
+  if (Array.isArray(content)) {
+    content = content
+      .map((part) => (typeof part === 'string' ? part : part?.text || part?.content || ''))
+      .join('');
+  }
+  if (typeof content === 'string' && content) return content;
+  console.error('[ai] Respons Puter tanpa content, dump:', resp);
+  throw new Error('AI mengembalikan konten kosong');
 }
 
 /**
@@ -288,13 +412,20 @@ function extractContent(data) {
 
 /**
  * Daftar model yang akan dicoba berurutan (utama → fallback).
- * Poolside hanya punya satu model; tidak ada fallback lintas provider.
+ * Poolside hanya punya satu model; Puter fallback ke tier hemat internal.
+ * Tidak ada fallback lintas provider (sama seperti desain awal).
  * @returns {string[]}
  */
 export function candidateModels() {
   const s = store.state.settings;
   if (currentProvider() === 'poolside') {
     return [s.poolsideModel || 'poolside/laguna-s-2.1'];
+  }
+  if (currentProvider() === 'puter') {
+    const models = [];
+    if (s.puterModel) models.push(s.puterModel);
+    if (PUTER_DEFAULT_MODEL && PUTER_DEFAULT_MODEL !== s.puterModel) models.push(PUTER_DEFAULT_MODEL);
+    return models.length ? models : [PUTER_DEFAULT_MODEL];
   }
   const models = [];
   if (s.model) models.push(s.model);

@@ -15,6 +15,8 @@
 
     <!-- Library DOCX (UMD) untuk export .docx -->
     <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js" defer></script>
+    <!-- Puter.js: AI + auth tanpa API key (User-Pays, tiap guru login sendiri) -->
+    <script src="https://js.puter.com/v2/"></script>
     <!--
   CSS dipisah ke src/styles/{app,document}.css dan di-bundle oleh Vite.
   Seluruh JS ada di src/ (ES modules) dengan entry point src/main.js.
@@ -30,6 +32,7 @@
       <h1>
         AI RPP Generator
         <span>— Kurikulum Merdeka + KBC</span>
+        <span class="version-badge">v3 • Puter</span>
       </h1>
       <div class="header-actions">
         <button class="btn btn-outline btn-sm" data-action="toggle-settings">⚙️ Pengaturan</button>
@@ -70,10 +73,33 @@
           <div class="form-group form-full">
             <label for="set-provider">Provider AI</label>
             <select class="form-select" id="set-provider">
+              <option value="puter">Puter (login, tanpa API key) — disarankan</option>
               <option value="openrouter">OpenRouter</option>
               <option value="poolside">Poolside (Laguna)</option>
             </select>
-            <span class="form-hint" id="provider-hint">Gunakan API key OpenRouter untuk model-model gratis.</span>
+            <span class="form-hint" id="provider-hint">Login Puter — tiap guru memakai jatah akunnya sendiri.</span>
+          </div>
+
+          <div class="form-group form-full grp-puter">
+            <label>Akun Puter</label>
+            <div class="puter-auth-row">
+              <span id="puter-status" role="status" aria-live="polite">Belum login</span>
+              <button type="button" class="btn btn-outline btn-sm" id="puter-auth-btn">Login Puter</button>
+            </div>
+            <span class="form-hint"
+              >Tanpa API key. Kuota AI terpakai dari akun Puter masing-masing.
+              <span id="puter-quota"></span
+            ></span>
+          </div>
+
+          <div class="form-group grp-puter">
+            <label for="puter-model">Model Puter</label>
+            <select class="form-select" id="puter-model">
+              <option value="gpt-5-nano">Hemat — GPT-5 Nano (disarankan)</option>
+              <option value="gpt-5.4-nano">Seimbang — GPT-5.4 Nano</option>
+              <option value="claude-sonnet-5">Canggih — Claude Sonnet 5</option>
+            </select>
+            <span class="form-hint">Model canggih memakai kuota lebih besar. Gagal → otomatis turun ke tier hemat.</span>
           </div>
 
           <div class="form-group form-full grp-openrouter">

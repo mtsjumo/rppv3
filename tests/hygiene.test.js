@@ -16,7 +16,7 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 /** Semua file yang constitutes sumber project. */
 function projectFiles() {
   const out = [];
-  const skip = new Set(['node_modules', 'dist', '.git', 'coverage']);
+  const skip = new Set(['node_modules', 'dist', '.git', '.kilo', 'coverage']);
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       if (skip.has(e.name)) continue;

@@ -3,7 +3,7 @@ import globals from 'globals';
 
 export default [
   {
-    ignores: ['dist/**', 'node_modules/**', '*.bak', 'coverage/**'],
+    ignores: ['dist/**', 'node_modules/**', '*.bak', 'coverage/**', '.kilo/**'],
   },
   js.configs.recommended,
   {

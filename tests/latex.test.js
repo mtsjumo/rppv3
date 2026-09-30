@@ -8,8 +8,15 @@ import {
   renderCodeCogs,
 } from '../src/services/latex.js';
 
-test('rumus inline \\( \\) diubah menjadi img CodeCogs', () => {
+test('rumus inline sederhana \\( \\) menjadi teks Unicode', () => {
   const out = renderCodeCogs(String.raw`Nilai \(x^2 + y^2\) positif.`);
+  assert.match(out, /<span class="math-inline"/);
+  assert.match(out, /x² \+ y²/);
+  assert.doesNotMatch(out, /<img/, 'rumus sederhana tidak perlu gambar');
+});
+
+test('rumus inline struktural \\( \\) tetap menjadi img CodeCogs', () => {
+  const out = renderCodeCogs(String.raw`Nilai \(\frac{1}{2}\) positif.`);
   assert.match(out, /<img src="https?:\/\/[^"]*codecogs/);
   assert.match(out, /loading="lazy"/, 'gambar rumus harus lazy-load');
 });
@@ -20,16 +27,18 @@ test('rumus display \\[ \\] dibungkus div rata tengah', () => {
   assert.match(out, /<img/);
 });
 
-test('delimiter eksplisit \\( \\), \\[ \\], dan $$ $$ selalu jadi gambar', () => {
-  // Delimiter ini tidak ambigu, jadi tidak lewat filter looksLikeMath.
-  const cases = [
-    [String.raw`\(a\)`, 'inline \\( \\)'],
+test('delimiter display \\[ \\] dan $$ $$ selalu jadi gambar; inline sederhana jadi teks', () => {
+  // Inline sederhana (tanpa struktur) diutamakan sebagai teks Unicode.
+  assert.match(renderCodeCogs(String.raw`\(a\)`), /<span class="math-inline"/, 'inline sederhana jadi teks');
+  // Display selalu gambar — penulis memang menghendaki tampilan tersendiri.
+  for (const [src, name] of [
     [String.raw`\[a+b\]`, 'display \\[ \\]'],
     [String.raw`$$a+b$$`, 'dollar-dollar'],
-  ];
-  for (const [src, name] of cases) {
+  ]) {
     assert.match(renderCodeCogs(src), /<img/, `${name} seharusnya jadi gambar`);
   }
+  // Inline struktural tetap gambar walau pakai delimiter inline.
+  assert.match(renderCodeCogs(String.raw`\(\frac{a}{b}\)`), /<img/, 'inline struktural jadi gambar');
 });
 
 test('looksLikeMath hanya menerima rumus yang terlihat seperti matematika', () => {
@@ -56,10 +65,17 @@ test('rumus $...$ sederhana dibiarkan apa adanya (anti-false-positive mata uang)
   );
 });
 
-test('rumus $...$ yang memang matematika tetap jadi gambar', () => {
-  assert.match(renderCodeCogs(String.raw`Nilai $x^2$ di sini.`), /<img/);
+test('rumus $...$ yang memang matematika dirender (teks atau gambar)', () => {
+  // Sederhana → teks Unicode; struktural → gambar. Keduanya "dirender",
+  // bukan dibiarkan sebagai LaTeX mentah.
+  assert.match(renderCodeCogs(String.raw`Nilai $x^2$ di sini.`), /x²/);
   assert.match(renderCodeCogs(String.raw`Nilai $\frac{1}{2}$ di sini.`), /<img/);
-  assert.match(renderCodeCogs(String.raw`Nilai $v_1$ di sini.`), /<img/);
+  assert.match(renderCodeCogs(String.raw`Nilai $v_1$ di sini.`), /v₁/);
+  assert.doesNotMatch(
+    renderCodeCogs(String.raw`Nilai $x^2$ dan $\frac{1}{2}$ di sini.`),
+    /\$x\^2\$|\\frac\{1\}\{2\}/,
+    'tidak boleh ada LaTeX mentah tersisa'
+  );
 });
 
 test('LaTeX polos dari AI dinormalisasi sebelum dirender', () => {
@@ -76,9 +92,12 @@ f(x) = \frac{6}{x-2} dengan domain x \neq 2 &#x20;`;
   const out = renderCodeCogs(normalized);
 
   assert.doesNotMatch(normalized, /&#x20;|\\\\\{/, 'entity spasi dan double-backslash harus dibersihkan');
-  assert.equal((out.match(/<img /g) || []).length, 9, 'seluruh ekspresi harus menjadi gambar rumus');
+  // 9 ekspresi: 6 struktural → gambar, 3 sederhana → teks Unicode.
+  assert.equal((out.match(/<img /g) || []).length, 6, 'ekspresi struktural harus menjadi gambar rumus');
+  assert.equal((out.match(/math-inline/g) || []).length, 3, 'ekspresi sederhana menjadi teks Unicode');
   assert.match(out, /A\. <img/, 'label opsi harus tetap menjadi teks');
   assert.match(out, /dengan domain/, 'frasa domain tidak boleh ikut menjadi LaTeX');
+  assert.doesNotMatch(out, /\\\(|\\\)/, 'tidak boleh ada delimiter mentah tersisa');
 });
 
 test('kalimat biasa yang memuat simbol matematika tidak dibungkus sebagai rumus', () => {
@@ -131,7 +150,8 @@ test('renderCodeCogs idempoten untuk input yang sudah di-render', () => {
     once,
     'pass kedua harus tidak mengubah apa pun — kalau tidak, render ganda merusak hasil'
   );
-  assert.equal((twice.match(/<img /g) || []).length, 2, 'kedua gambar harus utuh');
+  assert.equal((twice.match(/<img /g) || []).length, 1, 'gambar struktural harus utuh');
+  assert.equal((twice.match(/math-inline/g) || []).length, 1, 'teks Unicode harus utuh');
 });
 
 test('pass kedua tidak membuat gambar bersarang', () => {
@@ -146,7 +166,7 @@ test('pass kedua tidak membuat gambar bersarang', () => {
 });
 
 test('payload rumus ter-encode penuh di URL', () => {
-  const out = renderCodeCogs(String.raw`\(x^2\)`);
+  const out = renderCodeCogs(String.raw`\(\frac{1}{2}\)`);
   const src = out.match(/src="([^"]+)"/)[1];
   assert.ok(!/\\frac/.test(src), 'payload tidak boleh memuat backslash mentah');
   assert.match(src, /%5C/, 'backslash harus ter-encode');

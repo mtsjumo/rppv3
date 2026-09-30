@@ -117,16 +117,24 @@ async function testPuterConnection() {
       return { ok: false, message: '❌ Belum login Puter — klik Login Puter dulu' };
     }
     const user = await puter.auth.getUser().catch(() => null);
-    // max_tokens jangan terlalu kecil: model bisa menghabiskan budget untuk
-    // reasoning lalu berhenti dengan finish_reason "length" dan konten kosong.
+    // Uji dengan model yang sedang dipilih (bukan hardcode), supaya hasilnya
+    // mewakili generate sungguhan. max_tokens lega agar tidak terpotong.
+    const model = store.state.settings.puterModel || PUTER_DEFAULT_MODEL;
     const resp = await puter.ai.chat('Balas hanya dengan kata: ok', {
-      model: PUTER_DEFAULT_MODEL,
-      max_tokens: 100,
+      model,
+      max_tokens: 200,
       normalize: true,
     });
-    const text = resp?.message?.content?.toString?.() ?? '';
-    if (!text) return { ok: false, message: '❌ Puter membalas kosong' };
-    return { ok: true, message: `✅ Puter: login ${user?.username ? `sebagai ${user.username}` : 'ok'} — AI merespons` };
+    const msg = resp?.message || resp?.choices?.[0]?.message || {};
+    const text = (typeof msg.content === 'string' ? msg.content : '') || '';
+    if (!text.trim()) {
+      const reason = resp?.finish_reason || msg.finish_reason || '?';
+      return {
+        ok: false,
+        message: `❌ Puter membalas kosong (model ${model}, finish: ${reason}) — coba tier lain`,
+      };
+    }
+    return { ok: true, message: `✅ Puter (${model}): login ${user?.username ? `sebagai ${user.username}` : 'ok'} — AI merespons` };
   } catch (e) {
     return { ok: false, message: `❌ ${e.message || e}` };
   }

@@ -117,9 +117,11 @@ async function testPuterConnection() {
       return { ok: false, message: '❌ Belum login Puter — klik Login Puter dulu' };
     }
     const user = await puter.auth.getUser().catch(() => null);
+    // max_tokens jangan terlalu kecil: model bisa menghabiskan budget untuk
+    // reasoning lalu berhenti dengan finish_reason "length" dan konten kosong.
     const resp = await puter.ai.chat('Balas hanya dengan kata: ok', {
       model: PUTER_DEFAULT_MODEL,
-      max_tokens: 10,
+      max_tokens: 100,
       normalize: true,
     });
     const text = resp?.message?.content?.toString?.() ?? '';

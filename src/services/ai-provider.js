@@ -20,6 +20,7 @@ import {
   OPENROUTER_BASE,
   POOLSIDE_BASE,
   PUTER_DEFAULT_MODEL,
+  PUTER_FALLBACK_MODEL,
   REQUEST_HARD_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
 } from '../config.js';
@@ -424,10 +425,12 @@ export function candidateModels() {
     return [s.poolsideModel || 'poolside/laguna-s-2.1'];
   }
   if (currentProvider() === 'puter') {
+    // Rantai dalam-Puter: pilihan guru → cerdas-hemat → hemat.
+    const chain = [PUTER_DEFAULT_MODEL, PUTER_FALLBACK_MODEL];
     const models = [];
-    if (s.puterModel) models.push(s.puterModel);
-    if (PUTER_DEFAULT_MODEL && PUTER_DEFAULT_MODEL !== s.puterModel)
-      models.push(PUTER_DEFAULT_MODEL);
+    for (const m of [s.puterModel, ...chain]) {
+      if (m && !models.includes(m)) models.push(m);
+    }
     return models.length ? models : [PUTER_DEFAULT_MODEL];
   }
   const models = [];

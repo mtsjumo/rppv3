@@ -32,12 +32,33 @@ export const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
  */
 export const PUTER_MODELS = {
   hemat: 'gpt-5-nano',
+  cerdas_hemat: 'deepseek/deepseek-v4.1-flash',
   seimbang: 'gpt-5.4-nano',
   canggih: 'claude-sonnet-5',
 };
 
-/** Model Puter default (tier hemat = default bawaan Puter juga). */
-export const PUTER_DEFAULT_MODEL = PUTER_MODELS.hemat;
+/**
+ * Model Puter default = tier cerdas-hemat: harga sekelas Hemat dengan
+ * skor agen sekelas flagship (Terminal-Bench 90,6 > Opus 5).
+ */
+export const PUTER_DEFAULT_MODEL = PUTER_MODELS.cerdas_hemat;
+
+/** Jaring pengaman terakhir dalam rantai Puter: tier termurah. */
+export const PUTER_FALLBACK_MODEL = PUTER_MODELS.hemat;
+
+/**
+ * Label biaya empiris per 1 RPP penuh (dari pengukuran akun sendiri;
+ * yang bertanda estimasi dihitung dari tarif list × volume terukur).
+ */
+export const PUTER_MODEL_COST_HINT = {
+  'gpt-5-nano': '±20 kredit/RPP (estimasi)',
+  'deepseek/deepseek-v4.1-flash': '±20–40 kredit/RPP (estimasi, perlu ukur)',
+  'gpt-5.4-nano': '±70 kredit/RPP (terukur)',
+  'claude-sonnet-5': '±1.000 kredit/RPP (terukur — bisa habiskan jatah gratis!)',
+};
+
+/** Ambang persen sisa kuota untuk peringatan menonjol. */
+export const PUTER_QUOTA_WARN_PCT = 20;
 
 /** Batas token per panggilan API per sub-phase. */
 export const TOKEN_LIMITS = {

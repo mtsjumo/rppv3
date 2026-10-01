@@ -1022,6 +1022,16 @@ body {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
+#puter-quota.quota-low {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fdecec;
+  border: 1px solid #e8a0a0;
+  color: #a02a2a;
+  font-weight: 700;
+}
 
 @media (max-width: 768px) {
   .app-header {

@@ -12,7 +12,7 @@ import {
   testConnection,
 } from '../services/settings.js';
 import { showToast } from './toast.js';
-import { DEFAULT_WORKER_URL, PUTER_DEFAULT_MODEL } from '../config.js';
+import { DEFAULT_WORKER_URL, PUTER_DEFAULT_MODEL, PUTER_QUOTA_WARN_PCT } from '../config.js';
 
 const FIELD_IDS = {
   provider: 'set-provider',
@@ -120,10 +120,7 @@ export async function refreshPuterStatus() {
       if (quotaEl) {
         puter.auth
           .getMonthlyUsage()
-          .then((u) => {
-            const used = u?.ai?.total ?? u?.total;
-            setText(quotaEl, used != null ? `Pemakaian AI bulan ini: ${used}` : '');
-          })
+          .then((u) => showPuterQuota(quotaEl, u))
           .catch(() => setText(quotaEl, ''));
       }
     } else {
@@ -133,6 +130,36 @@ export async function refreshPuterStatus() {
     }
   } catch {
     setText(statusEl, 'Gagal mengecek status login');
+  }
+}
+
+/**
+ * Tampilkan sisa kuota Puter; menonjol (merah + peringatan) bila di bawah
+ * ambang PUTER_QUOTA_WARN_PCT. Bentuk MonthlyUsage:
+ * allowanceInfo: { monthUsageAllowance, remaining }.
+ */
+export function showPuterQuota(quotaEl, usage) {
+  const info = usage?.allowanceInfo || {};
+  const total = Number(info.monthUsageAllowance);
+  const remaining = Number(info.remaining);
+  quotaEl.classList?.toggle('quota-low', false);
+  if (!Number.isFinite(total) || !Number.isFinite(remaining) || total <= 0) {
+    // Bentuk tak dikenal — tampilkan info seadanya, tanpa warning.
+    const used = usage?.ai?.total ?? usage?.total;
+    setText(quotaEl, used != null ? `Pemakaian AI bulan ini: ${used}` : '');
+    return;
+  }
+  const pct = Math.max(0, Math.round((remaining / total) * 100));
+  const fmt = (n) => Math.round(n).toLocaleString('id-ID');
+  if (pct < PUTER_QUOTA_WARN_PCT) {
+    quotaEl.classList?.toggle('quota-low', true);
+    setText(
+      quotaEl,
+      `⚠️ Sisa kuota tinggal ${pct}% (${fmt(remaining)} dari ${fmt(total)}). ` +
+        `1 RPP tier Canggih butuh ±1.000 kredit — turunkan ke tier Hemat/Cerdas-hemat.`
+    );
+  } else {
+    setText(quotaEl, `Sisa kuota: ${pct}% (${fmt(remaining)} dari ${fmt(total)}).`);
   }
 }
 

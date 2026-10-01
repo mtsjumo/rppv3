@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 
 import { store } from '../src/core/store.js';
 import { callAIProvider, candidateModels } from '../src/services/ai-provider.js';
-import { PUTER_DEFAULT_MODEL } from '../src/config.js';
+import { PUTER_DEFAULT_MODEL, PUTER_FALLBACK_MODEL } from '../src/config.js';
 
 const MESSAGES = [{ role: 'user', content: 'halo' }];
 
@@ -102,12 +102,21 @@ test('sinyal batal sebelum panggilan menghentikan puter', async () => {
   }
 });
 
-test('candidateModels puter: tier pilihan lalu hemat', async () => {
+test('candidateModels puter: pilihan → cerdas-hemat → hemat', async () => {
   store.state.settings = {
     ...(store.state.settings || {}),
     provider: 'puter',
     puterModel: 'claude-sonnet-5',
   };
   const models = candidateModels();
-  assert.deepEqual(models, ['claude-sonnet-5', PUTER_DEFAULT_MODEL]);
+  assert.deepEqual(models, ['claude-sonnet-5', PUTER_DEFAULT_MODEL, PUTER_FALLBACK_MODEL]);
+});
+
+test('candidateModels puter default tanpa duplikat', async () => {
+  store.state.settings = {
+    ...(store.state.settings || {}),
+    provider: 'puter',
+    puterModel: PUTER_DEFAULT_MODEL,
+  };
+  assert.deepEqual(candidateModels(), [PUTER_DEFAULT_MODEL, PUTER_FALLBACK_MODEL]);
 });

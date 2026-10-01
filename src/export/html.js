@@ -27,7 +27,7 @@ export function exportPhaseHTML(previewId, filename) {
   const el = document.getElementById(previewId);
   if (!el) return false;
   const doc = el.querySelector('.rpp-document') || el;
-  const title = filename.replace('-portfolio.html', '');
+  const title = filename.replace(/\.html$/, '');
   saveAs(new Blob([buildStandalone(doc.innerHTML, title)], { type: 'text/html' }), filename);
   return true;
 }

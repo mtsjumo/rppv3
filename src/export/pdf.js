@@ -15,21 +15,22 @@ let activePrintArea = null;
 /**
  * Cetak satu elemen preview sebagai PDF.
  * @param {string} elementId id container preview
- * @param {string} [label] nama untuk pesan toast
+ * @param {string} [fileBase] nama dasar file; dipakai sebagai nama default di dialog "Save as PDF"
  */
-export function printElement(elementId) {
+export function printElement(elementId, fileBase) {
   const el = document.getElementById(elementId);
   if (!el) return false;
   el.classList.add('print-area');
-  runPrint(() => el.classList.remove('print-area'));
+  runPrint(() => el.classList.remove('print-area'), fileBase);
   return true;
 }
 
 /**
  * Cetak beberapa phase sebagai satu PDF (dengan page-break di antaranya).
  * @param {Array<{id: string, label: string}>} phases
+ * @param {string} [fileBase] nama dasar file untuk dialog "Save as PDF"
  */
-export function printCombined(phases) {
+export function printCombined(phases, fileBase) {
   const temp = document.createElement('div');
   temp.className = 'print-area';
   temp.style.cssText = 'position:absolute;left:0;top:0;width:100%;z-index:9999;background:#fff;';
@@ -61,20 +62,27 @@ export function printCombined(phases) {
   runPrint(() => {
     if (temp.parentNode) temp.parentNode.removeChild(temp);
     activePrintArea = null;
-  });
+  }, fileBase);
   return true;
 }
 
-function runPrint(cleanup) {
+function runPrint(cleanup, fileBase) {
+  // Browser memakai judul halaman sebagai nama file default di dialog "Save as PDF".
+  const originalTitle = document.title;
+  const restore = () => {
+    document.title = originalTitle;
+    cleanup();
+  };
   // Beri browser satu frame untuk menerapkan layout sebelum dialog print.
   requestAnimationFrame(() => {
+    if (fileBase) document.title = fileBase;
     window.print();
     if (typeof window.onafterprint !== 'undefined') {
-      window.onafterprint = cleanup;
+      window.onafterprint = restore;
       // Jaring pengaman: beberapa browser tidak memanggil onafterprint.
-      setTimeout(cleanup, 5000);
+      setTimeout(restore, 5000);
     } else {
-      setTimeout(cleanup, 3000);
+      setTimeout(restore, 3000);
     }
   });
 }

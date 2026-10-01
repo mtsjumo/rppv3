@@ -8,6 +8,7 @@ import { friendlyError } from '../services/ai-client.js';
 import { isDocxAvailable } from './docx.js';
 import { exportCombinedDOCX } from './docx.js';
 import { exportCombinedHTML } from './html.js';
+import { buildExportBase, buildExportFilename } from './filename.js';
 import { printCombined } from './pdf.js';
 import { showToast } from '../ui/toast.js';
 
@@ -28,7 +29,7 @@ export function exportCombinedPDF() {
     return;
   }
   showToast('🔄 Buka dialog Print → pilih "Save as PDF"', 'info', { duration: 7000 });
-  printCombined(phases);
+  printCombined(phases, buildExportBase('lengkap', store.state.input));
 }
 
 export async function exportCombinedDOCXSafe() {
@@ -43,7 +44,7 @@ export async function exportCombinedDOCXSafe() {
   }
   try {
     showToast('📝 Menyiapkan dokumen gabungan...', 'info');
-    await exportCombinedDOCX(phases);
+    await exportCombinedDOCX(phases, buildExportFilename('lengkap', 'docx', store.state.input));
     showToast('✅ Combined DOCX berhasil diunduh!', 'success');
   } catch (e) {
     showToast(`❌ Gagal: ${friendlyError(e.message)}`, 'error');
@@ -56,10 +57,7 @@ export function exportCombinedHTMLSafe() {
     showToast('❌ Belum ada data untuk diekspor', 'error');
     return;
   }
-  const name = `RPP-Complete-${(store.state.input.madrasah || 'portfolio')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')}-portfolio.html`;
+  const name = buildExportFilename('lengkap', 'html', store.state.input);
   if (exportCombinedHTML(phases, name)) {
     showToast('✅ Combined HTML berhasil diunduh!', 'success');
   }

@@ -58,6 +58,7 @@ import { getCheckpoint } from '../recovery/checkpoint.js';
 import { exportPhaseDOCX } from '../export/docx.js';
 import { printElement } from '../export/pdf.js';
 import { exportPhaseHTML } from '../export/html.js';
+import { buildExportBase, buildExportFilename } from '../export/filename.js';
 
 /** AbortController untuk job yang sedang jalan. */
 let currentController = null;
@@ -468,12 +469,12 @@ function applyPartToPhase1(phase1, partIndex, data) {
 // ---------------------------------------------------------------------------
 
 export function exportPhase1PDF() {
-  printElement('phase1-preview', 'RPP');
+  printElement('phase1-preview', buildExportBase('rpp', store.state.input));
 }
 
 export async function exportPhase1DOCX() {
   try {
-    await exportPhaseDOCX('phase1-preview', 'RPP.docx');
+    await exportPhaseDOCX('phase1-preview', buildExportFilename('rpp', 'docx', store.state.input));
     showToast('DOCX berhasil diunduh!', 'success');
   } catch (e) {
     showToast(`Gagal export DOCX: ${friendlyError(e.message)}`, 'error');
@@ -481,8 +482,7 @@ export async function exportPhase1DOCX() {
 }
 
 export function exportPhase1HTML() {
-  const madrasah = store.state.input.madrasah || 'RPP';
-  if (exportPhaseHTML('phase1-preview', `RPP-${slug(madrasah)}-portfolio.html`)) {
+  if (exportPhaseHTML('phase1-preview', buildExportFilename('rpp', 'html', store.state.input))) {
     showToast('HTML berhasil diunduh!', 'success');
   }
 }

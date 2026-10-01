@@ -458,7 +458,7 @@ export async function exportCombinedDOCX(phases, filename = 'RPP-Complete.docx')
   if (!children.length) throw new Error('Belum ada data untuk diekspor');
 
   const doc = new Document({
-    title: 'RPP-Complete',
+    title: filename.replace(/\.docx$/, ''),
     numbering: numberingConfig(lib),
     styles: { default: { document: { run: { font: FONT, size: 24 } } } },
     sections: [{ properties: { page: { margin: MARGIN } }, children }],

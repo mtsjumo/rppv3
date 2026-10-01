@@ -305,7 +305,7 @@ export function itemHtml(item) {
   const parts = detailKeys.map((k) => valueText(item[k]));
   const extras = rest.map(([k, v]) => `<em>${escapeHtml(humanize(k))}</em>: ${valueText(v)}`);
 
-  let html = '';
+  let html;
   if (labelKey) {
     html = `<strong>${text(item[labelKey])}${parts.length ? ':' : ''}</strong>`;
     if (parts.length) html += ` ${parts.join('<br>')}`;

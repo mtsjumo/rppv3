@@ -29,7 +29,7 @@ import { clearCheckpointFor, getResumeContext, runResumableJob } from '../recove
 import { exportPhaseDOCX } from '../export/docx.js';
 import { printElement } from '../export/pdf.js';
 import { exportPhaseHTML } from '../export/html.js';
-import { slug } from './phase1.js';
+import { buildExportBase, buildExportFilename } from '../export/filename.js';
 
 const PHASE = 'phase3';
 const UNIT_ID = 'media';
@@ -176,12 +176,15 @@ export function showRecoveryBannerIfNeeded() {
 // ---------------------------------------------------------------------------
 
 export function exportPhase3PDF() {
-  printElement('phase3-preview', 'Media Pembelajaran');
+  printElement('phase3-preview', buildExportBase('media', store.state.input));
 }
 
 export async function exportPhase3DOCX() {
   try {
-    await exportPhaseDOCX('phase3-preview', 'MediaPembelajaran.docx');
+    await exportPhaseDOCX(
+      'phase3-preview',
+      buildExportFilename('media', 'docx', store.state.input)
+    );
     showToast('✅ DOCX berhasil diunduh!', 'success');
   } catch (e) {
     showToast(`❌ Gagal export DOCX: ${friendlyError(e.message)}`, 'error');
@@ -189,8 +192,7 @@ export async function exportPhase3DOCX() {
 }
 
 export function exportPhase3HTML() {
-  const base = `MediaPembelajaran-${slug(store.state.input.madrasah || 'materi')}`;
-  if (exportPhaseHTML('phase3-preview', `${base}-portfolio.html`)) {
+  if (exportPhaseHTML('phase3-preview', buildExportFilename('media', 'html', store.state.input))) {
     showToast('✅ HTML berhasil diunduh!', 'success');
   }
 }

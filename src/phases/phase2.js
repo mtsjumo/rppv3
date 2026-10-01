@@ -31,7 +31,7 @@ import { clearCheckpointFor, getResumeContext, runResumableJob } from '../recove
 import { exportPhaseDOCX } from '../export/docx.js';
 import { printElement } from '../export/pdf.js';
 import { exportPhaseHTML } from '../export/html.js';
-import { slug } from './phase1.js';
+import { buildExportBase, buildExportFilename } from '../export/filename.js';
 
 const PHASE = 'phase2';
 const UNIT_ID = 'modul';
@@ -175,12 +175,15 @@ export function showRecoveryBannerIfNeeded() {
 // ---------------------------------------------------------------------------
 
 export function exportPhase2PDF() {
-  printElement('phase2-preview', 'Modul Ajar');
+  printElement('phase2-preview', buildExportBase('modul', store.state.input));
 }
 
 export async function exportPhase2DOCX() {
   try {
-    await exportPhaseDOCX('phase2-preview', 'ModulAjar.docx');
+    await exportPhaseDOCX(
+      'phase2-preview',
+      buildExportFilename('modul', 'docx', store.state.input)
+    );
     showToast('✅ DOCX berhasil diunduh!', 'success');
   } catch (e) {
     showToast(`❌ Gagal export DOCX: ${friendlyError(e.message)}`, 'error');
@@ -188,8 +191,7 @@ export async function exportPhase2DOCX() {
 }
 
 export function exportPhase2HTML() {
-  const base = `ModulAjar-${slug(store.state.input.madrasah || 'materi')}`;
-  if (exportPhaseHTML('phase2-preview', `${base}-portfolio.html`)) {
+  if (exportPhaseHTML('phase2-preview', buildExportFilename('modul', 'html', store.state.input))) {
     showToast('✅ HTML berhasil diunduh!', 'success');
   }
 }

@@ -52,7 +52,7 @@ export const PUTER_FALLBACK_MODEL = PUTER_MODELS.hemat;
  */
 export const PUTER_MODEL_COST_HINT = {
   'gpt-5-nano': '±20 kredit/RPP (estimasi)',
-  'deepseek/deepseek-v4.1-flash': '±20–40 kredit/RPP (estimasi, perlu ukur)',
+  'deepseek/deepseek-v4.1-flash': '±170 kredit/RPP penuh (terukur)',
   'gpt-5.4-nano': '±70 kredit/RPP (terukur)',
   'claude-sonnet-5': '±1.000 kredit/RPP (terukur — bisa habiskan jatah gratis!)',
 };

@@ -29,7 +29,11 @@ test('rumus display \\[ \\] dibungkus div rata tengah', () => {
 
 test('delimiter display \\[ \\] dan $$ $$ selalu jadi gambar; inline sederhana jadi teks', () => {
   // Inline sederhana (tanpa struktur) diutamakan sebagai teks Unicode.
-  assert.match(renderCodeCogs(String.raw`\(a\)`), /<span class="math-inline"/, 'inline sederhana jadi teks');
+  assert.match(
+    renderCodeCogs(String.raw`\(a\)`),
+    /<span class="math-inline"/,
+    'inline sederhana jadi teks'
+  );
   // Display selalu gambar — penulis memang menghendaki tampilan tersendiri.
   for (const [src, name] of [
     [String.raw`\[a+b\]`, 'display \\[ \\]'],
@@ -38,7 +42,11 @@ test('delimiter display \\[ \\] dan $$ $$ selalu jadi gambar; inline sederhana j
     assert.match(renderCodeCogs(src), /<img/, `${name} seharusnya jadi gambar`);
   }
   // Inline struktural tetap gambar walau pakai delimiter inline.
-  assert.match(renderCodeCogs(String.raw`\(\frac{a}{b}\)`), /<img/, 'inline struktural jadi gambar');
+  assert.match(
+    renderCodeCogs(String.raw`\(\frac{a}{b}\)`),
+    /<img/,
+    'inline struktural jadi gambar'
+  );
 });
 
 test('looksLikeMath hanya menerima rumus yang terlihat seperti matematika', () => {
@@ -91,10 +99,22 @@ f(x) = \frac{6}{x-2} dengan domain x \neq 2 &#x20;`;
   const normalized = normalizeMathText(raw);
   const out = renderCodeCogs(normalized);
 
-  assert.doesNotMatch(normalized, /&#x20;|\\\\\{/, 'entity spasi dan double-backslash harus dibersihkan');
+  assert.doesNotMatch(
+    normalized,
+    /&#x20;|\\\\\{/,
+    'entity spasi dan double-backslash harus dibersihkan'
+  );
   // 9 ekspresi: 6 struktural → gambar, 3 sederhana → teks Unicode.
-  assert.equal((out.match(/<img /g) || []).length, 6, 'ekspresi struktural harus menjadi gambar rumus');
-  assert.equal((out.match(/math-inline/g) || []).length, 3, 'ekspresi sederhana menjadi teks Unicode');
+  assert.equal(
+    (out.match(/<img /g) || []).length,
+    6,
+    'ekspresi struktural harus menjadi gambar rumus'
+  );
+  assert.equal(
+    (out.match(/math-inline/g) || []).length,
+    3,
+    'ekspresi sederhana menjadi teks Unicode'
+  );
   assert.match(out, /A\. <img/, 'label opsi harus tetap menjadi teks');
   assert.match(out, /dengan domain/, 'frasa domain tidak boleh ikut menjadi LaTeX');
   assert.doesNotMatch(out, /\\\(|\\\)/, 'tidak boleh ada delimiter mentah tersisa');
@@ -104,8 +124,12 @@ test('kalimat biasa yang memuat simbol matematika tidak dibungkus sebagai rumus'
   const prose = String.raw`Peserta didik menggunakan rumus x = 5 untuk memeriksa hasil percobaan.`;
   assert.equal(normalizeMathText(prose), prose);
 
+  // Hanya ekspresinya yang dibungkus (agar tidak tampil sebagai \frac mentah), kalimatnya utuh.
   const proseWithCommand = String.raw`Guru menjelaskan \frac{1}{2} bagian pizza melalui diskusi kelompok.`;
-  assert.equal(normalizeMathText(proseWithCommand), proseWithCommand);
+  assert.equal(
+    normalizeMathText(proseWithCommand),
+    String.raw`Guru menjelaskan \(\frac{1}{2}\) bagian pizza melalui diskusi kelompok.`
+  );
 });
 
 test('baris tabel Markdown tidak dirusak oleh normalisasi matematika', () => {

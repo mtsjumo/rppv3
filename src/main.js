@@ -125,7 +125,8 @@ const EXAMPLE_INPUT = {
 /** Isi form dengan data contoh (hanya field yang masih kosong, atau setelah konfirmasi). */
 function fillExample() {
   const filled = Object.keys(EXAMPLE_INPUT).some((id) => $(`#${id}`)?.value?.trim());
-  if (filled && !window.confirm('Isian yang sudah ada akan ditimpa data contoh. Lanjutkan?')) return;
+  if (filled && !window.confirm('Isian yang sudah ada akan ditimpa data contoh. Lanjutkan?'))
+    return;
 
   for (const [id, value] of Object.entries(EXAMPLE_INPUT)) {
     const el = $(`#${id}`);

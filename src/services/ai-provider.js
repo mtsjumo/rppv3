@@ -209,7 +209,9 @@ export async function callAIProvider(
           `Timeout: generate melebihi batas ${Math.round(REQUEST_HARD_TIMEOUT_MS / 1000)} detik`
         );
       }
-      throw new Error(`Timeout: tidak ada respons dari model selama ${Math.round(timeoutMs / 1000)} detik`);
+      throw new Error(
+        `Timeout: tidak ada respons dari model selama ${Math.round(timeoutMs / 1000)} detik`
+      );
     }
     throw e;
   } finally {
@@ -424,7 +426,8 @@ export function candidateModels() {
   if (currentProvider() === 'puter') {
     const models = [];
     if (s.puterModel) models.push(s.puterModel);
-    if (PUTER_DEFAULT_MODEL && PUTER_DEFAULT_MODEL !== s.puterModel) models.push(PUTER_DEFAULT_MODEL);
+    if (PUTER_DEFAULT_MODEL && PUTER_DEFAULT_MODEL !== s.puterModel)
+      models.push(PUTER_DEFAULT_MODEL);
     return models.length ? models : [PUTER_DEFAULT_MODEL];
   }
   const models = [];

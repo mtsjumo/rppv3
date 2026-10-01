@@ -2,7 +2,7 @@
  * Prompt builder untuk Phase 3 (Media Pembelajaran).
  */
 
-import { LATEX_RULE, buildContextSummary } from './base.js';
+import { CONTENT_QUALITY_RULES, LATEX_RULE, NOTATION_RULES, buildContextSummary } from './base.js';
 
 const SYSTEM_PROMPT = `Kamu adalah AI pembuat Media Pembelajaran kreatif untuk Kurikulum Merdeka. Output HANYA JSON valid.
 
@@ -24,7 +24,13 @@ ATURAN:
 4. Infografis dengan 5-7 elemen data visual
 5. Kuis interaktif minimal 5 soal dengan feedback
 6. Poster edukatif A3 size
-7. Setiap media WAJIB konsisten dengan materi, CP, dan tujuan pembelajaran RPP.`;
+7. Setiap media WAJIB konsisten dengan materi, CP, dan tujuan pembelajaran RPP.
+8. Isi slide, narasi, dan kuis memuat fakta, angka, dan contoh yang spesifik untuk materi ini. Feedback kuis menjelaskan MENGAPA jawaban benar/salah, bukan sekadar "Benar!" atau "Coba lagi".
+9. Bila kuis atau slide memuat rumus, tulis dengan pembungkus LaTeX sesuai aturan notasi, termasuk pada teks opsi jawaban.
+
+${CONTENT_QUALITY_RULES}
+
+${NOTATION_RULES}`;
 
 /**
  * @param {object} input isi form

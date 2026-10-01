@@ -76,7 +76,7 @@ ATURAN PENTING — KONSISTENSI:
 4. Setiap langkah kegiatan awal, inti (Memahami→Mengaplikasi→Merefleksi), dan penutup harus DIRANCANG untuk mencapai TP. Jika tidak, RPP tidak berguna.
 5. Integrasikan nilai Panca Cinta KBC dan prinsip Deep Learning (Mindful→Meaningful→Joyful) secara KONTEKSTUAL dalam setiap tahap pembelajaran, bukan tempelan.
 6. Sertakan strategi Diferensiasi Pembelajaran (konten, proses, produk) yang spesifik dan dapat diterapkan sesuai materi.
-7. Notasi matematika/sains mengikuti aturan NOTASI di atas: teks Unicode untuk yang sederhana, LaTeX hanya untuk pecahan, akar, sigma/integral, matriks. Aksara Arab/Jawa tulis langsung.
+7. Notasi matematika/sains mengikuti aturan NOTASI di atas: bungkus SEMUA rumus, pangkat, indeks, dan reaksi kimia dengan \\(...\\); jangan menulis perintah LaTeX di luar pembungkus. Aksara Arab/Jawa tulis langsung.
 8. Kegiatan inti harus berisi pertanyaan pemantik, contoh kasus, atau instruksi tugas yang benar-benar ditulis (bukan hanya disebutkan), lengkap dengan media/bahan yang dipakai dan produk yang dihasilkan peserta didik.
 
 CONTOH STRUKTUR & GAYA BAHASA (acuan format, kedalaman isi, dan cara menulis langkah pembelajaran — JANGAN salin topiknya):

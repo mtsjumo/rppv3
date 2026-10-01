@@ -71,11 +71,10 @@ export function buildModulAjarPrompt(input, rppData = {}) {
 
 ${LATEX_RULE}
 
-CONTOH NOTASI (berlaku di SEMUA field teks: pengertian, konten sub-bab, contoh, definisi, jawaban FAQ):
-- Rumus struktural WAJIB LaTeX: \\(\\frac{1}{2}\\), \\[E = \\frac{1}{2} m v^{2}\\], \\(\\sqrt{a^{2} + b^{2}}\\).
-- Cukup teks biasa: m², cm³, H₂O, H₂SO₄, CO₂, 2H₂ + O₂ → 2H₂O, 25 °C, 3 × 10⁸ m/s.
-- Salah: membungkus kata atau kalimat biasa dengan LaTeX, atau menulis pecahan bertingkat sebagai teks "1/2 m v^2".
-- Di dalam JSON, backslash ditulis GANDA agar valid, mis. "rumus": "\\\\frac{1}{2}".
+PENERAPAN NOTASI (berlaku di SEMUA field teks: pengertian, konten sub-bab, contoh, definisi, jawaban FAQ):
+- Bila materi memuat rumus, persamaan, satuan berpangkat, atau reaksi kimia, tulis SETIAP kemunculannya dalam pembungkus, mis. "Energi kinetik \\\\(E_{k} = \\\\frac{1}{2} m v^{2}\\\\) dengan \\\\(m\\\\) dalam kg" atau "Air terbentuk dari \\\\(2H_{2} + O_{2} \\\\rightarrow 2H_{2}O\\\\)".
+- Penjelasan rumus (arti tiap lambang, satuan, contoh perhitungan bertahap dengan angka) ditulis lengkap di "konten" dan "contoh", bukan hanya rumusnya.
+- Bila materi tidak memuat rumus (mis. bahasa, agama, IPS), jangan memakai LaTeX.
 
 CONTOH STRUKTUR (JANGAN salin isinya, gunakan sebagai panduan format dan kedalaman):
 ${FEWSHOT_MODUL_AJAR}

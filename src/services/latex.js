@@ -14,6 +14,7 @@
  */
 
 import { GREEK, KNOWN_COMMANDS, STRUCTURAL_RE, SYMBOLS } from './latex-commands.js';
+import { chemToUnicode, wrapInlineBareMath } from './latex-repair.js';
 
 // ---------------------------------------------------------------------------
 // Perbaikan karakter kontrol akibat pelarian JSON
@@ -77,7 +78,7 @@ export function normalizeMathText(value) {
 
   return normalized
     .split(/(\n)/)
-    .map((part) => (part === '\n' ? part : wrapBareMathLine(part)))
+    .map((part) => (part === '\n' ? part : wrapInlineBareMath(wrapBareMathLine(part))))
     .join('');
 }
 
@@ -87,7 +88,9 @@ function wrapBareMathLine(line) {
   if (!line.trim() || line.includes('|') || /\\\(|\\\[|\$/.test(line)) return line;
 
   const wrap = (formula) => `\\(${formula.trim()}\\)`;
-  const option = line.match(/^(\s*[A-Da-d]\.?\s+)(.+)$/);
+  // Label opsi wajib memakai titik/kurung ("A." atau "a)"). Tanpa itu, "a = 3" akan
+  // terpecah menjadi label "a" + rumus "= 3".
+  const option = line.match(/^(\s*[A-Da-d][.)]\s+)(.+)$/);
   if (option && isBareMathExpression(option[2])) return `${option[1]}${wrap(option[2])}`;
 
   // Bentuk umum soal: "f(x) = ... dengan domain x \neq ...".
@@ -328,6 +331,8 @@ function flattenStructures(s) {
 export function mathToUnicode(formula, { lenient = false } = {}) {
   let s = String(formula).trim();
   if (!s) return lenient ? '' : null;
+  // \ce{...} (mhchem) tidak dikenal CodeCogs — tulis sebagai teks kimia Unicode.
+  s = s.replace(/\\ce\s*\{([^{}]*)\}/g, (_, body) => chemToUnicode(body));
 
   if (STRUCTURAL_RE.test(s) || /\\\\|&/.test(s)) {
     if (!lenient) return null;
@@ -375,10 +380,9 @@ export function renderCodeCogs(text) {
   let out = cleanLaTeX(text);
 
   const toImg = (f, display) => {
-    const dpi = display ? 150 : 120;
-    // SELURUH payload di-encode (sebelumnya prefix \inline \dpi... dibiarkan mentah
-    // di URL sehingga sering gagal render).
-    const payload = `\\inline \\dpi{${dpi}}${display ? ' \\large' : ''} ${f}`;
+    // SELURUH payload di-encode. Rumus display tidak boleh memakai \inline (ukuran
+    // pecahan mengecil seperti di dalam kalimat).
+    const payload = display ? `\\dpi{150} \\large ${f}` : `\\inline \\dpi{120} ${f}`;
     const src = CODECOGS_ENDPOINT + encodeURIComponent(payload);
     // alt = teks terbaca; itulah yang tampil bila gambar gagal dimuat.
     const alt = escapeMarkup(mathToUnicode(f, { lenient: true }) || f);

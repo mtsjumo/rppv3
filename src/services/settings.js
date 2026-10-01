@@ -6,7 +6,12 @@ import { store, initialSettings } from '../core/store.js';
 import { STORAGE_KEYS, readJson, writeJson } from '../core/storage.js';
 import { withCorsProxy } from './ai-provider.js';
 import { showToast } from '../ui/toast.js';
-import { DEFAULT_WORKER_URL, OPENROUTER_BASE, POOLSIDE_BASE, PUTER_DEFAULT_MODEL } from '../config.js';
+import {
+  DEFAULT_WORKER_URL,
+  OPENROUTER_BASE,
+  POOLSIDE_BASE,
+  PUTER_DEFAULT_MODEL,
+} from '../config.js';
 
 /** Muat pengaturan dari localStorage dan terapkan ke state. */
 export function loadSettings() {
@@ -134,7 +139,10 @@ async function testPuterConnection() {
         message: `❌ Puter membalas kosong (model ${model}, finish: ${reason}) — coba tier lain`,
       };
     }
-    return { ok: true, message: `✅ Puter (${model}): login ${user?.username ? `sebagai ${user.username}` : 'ok'} — AI merespons` };
+    return {
+      ok: true,
+      message: `✅ Puter (${model}): login ${user?.username ? `sebagai ${user.username}` : 'ok'} — AI merespons`,
+    };
   } catch (e) {
     return { ok: false, message: `❌ ${e.message || e}` };
   }

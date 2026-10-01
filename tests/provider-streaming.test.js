@@ -79,7 +79,10 @@ test('tanpa onProgress permintaan tidak meminta stream (perilaku lama)', async (
 
 test('error di tengah stream dilempar dengan pesan provider', async () => {
   setup(async () =>
-    sseResponse([delta('a'), `data: ${JSON.stringify({ error: { message: 'kuota habis', code: 402 } })}\n\n`])
+    sseResponse([
+      delta('a'),
+      `data: ${JSON.stringify({ error: { message: 'kuota habis', code: 402 } })}\n\n`,
+    ])
   );
   await assert.rejects(
     () => callAIProvider('m', MESSAGES, 1000, 500, { onProgress: () => {} }),

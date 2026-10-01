@@ -45,9 +45,7 @@ const SCANNED = FILES.filter((f) => path.relative(ROOT, f).split(path.sep).join(
 
 /** Hanya file .js di dalam src/ (dipakai untuk pemindaian host). */
 function sourceFilesJs() {
-  return projectFiles().filter(
-    (f) => f.startsWith(path.join(ROOT, 'src')) && f.endsWith('.js')
-  );
+  return projectFiles().filter((f) => f.startsWith(path.join(ROOT, 'src')) && f.endsWith('.js'));
 }
 
 test('daftar file yang dipindai tidak kosong', () => {
@@ -199,10 +197,7 @@ test('proxy CORS bawaan memakai worker milik sendiri, bukan proxy publik', () =>
 
   const lower = m[1].toLowerCase();
   for (const host of FORBIDDEN_PROXY_HOSTS) {
-    assert.ok(
-      !lower.includes(host),
-      `proxy bawaan tidak boleh memakai layanan publik "${host}"`
-    );
+    assert.ok(!lower.includes(host), `proxy bawaan tidak boleh memakai layanan publik "${host}"`);
   }
 });
 

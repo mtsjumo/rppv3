@@ -68,7 +68,10 @@ test('unit pertama selesai dulu, sisanya berjalan paralel tanpa cooldown 5 detik
   assert.equal(getCheckpoint(job.checkpointId).status, 'complete');
 
   assert.equal(log[0], 'start:a');
-  assert.ok(log.indexOf('end:a') < log.indexOf('start:b'), 'RPP Core harus selesai sebelum unit lain mulai');
+  assert.ok(
+    log.indexOf('end:a') < log.indexOf('start:b'),
+    'RPP Core harus selesai sebelum unit lain mulai'
+  );
   assert.equal(stats.peak, 3, 'harus ada 3 unit berjalan bersamaan');
   assert.ok(elapsed < 2000, `mode paralel tidak boleh kena cooldown tetap (${elapsed}ms)`);
 });

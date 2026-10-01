@@ -154,11 +154,10 @@ function renderMarkdownTable(headers, aligns, rows) {
     .map((row) => {
       // Sel berlebih (pipe yang lolos) digabung ke sel terakhir supaya isi tidak hilang.
       const cells =
-        row.length > ncols
-          ? [...row.slice(0, ncols - 1), row.slice(ncols - 1).join(' | ')]
-          : row;
+        row.length > ncols ? [...row.slice(0, ncols - 1), row.slice(ncols - 1).join(' | ')] : row;
       let tds = '';
-      for (let k = 0; k < ncols; k++) tds += `<td${alignStyle(k)}>${inlineHtml(cells[k] ?? '')}</td>`;
+      for (let k = 0; k < ncols; k++)
+        tds += `<td${alignStyle(k)}>${inlineHtml(cells[k] ?? '')}</td>`;
       return `<tr>${tds}</tr>`;
     })
     .join('');
@@ -383,7 +382,13 @@ function cellsFromObject(row, headers) {
 function cellsFromArray(row, headers) {
   if (row.length <= headers.length) return headers.map((_, i) => row[i] ?? '');
   const head = row.slice(0, headers.length - 1);
-  return [...head, row.slice(headers.length - 1).map(stringify).join(' ')];
+  return [
+    ...head,
+    row
+      .slice(headers.length - 1)
+      .map(stringify)
+      .join(' '),
+  ];
 }
 
 const isNumberColumn = (header) => ['no', 'nomor'].includes(normalizeKey(header));

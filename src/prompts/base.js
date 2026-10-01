@@ -33,19 +33,27 @@ export function buildContextSummary(context) {
 /**
  * Aturan notasi (matematika, kimia, fisika) — satu sumber kebenaran.
  *
- * Tujuannya dua arah: jangan memakai LaTeX untuk hal yang cukup ditulis sebagai
- * teks biasa (gambar rumus lambat, bergantung internet, dan mengganggu bacaan),
- * tetapi jangan pula melewatkan rumus yang memang dibutuhkan. Renderer
- * (`services/latex.js`) juga menyederhanakan rumus ringan menjadi teks Unicode,
- * jadi keduanya konsisten.
+ * Desain: AI TIDAK diminta memutuskan mana rumus "sederhana" dan mana yang
+ * "rumit". Keputusan itu membuat model (terutama yang kecil) tidak konsisten:
+ * sebagian rumus dibungkus, sebagian ditulis polos (`x^2`, `\frac{1}{2}` tanpa
+ * pembungkus) sehingga tampil sebagai teks mentah. Aturannya cukup satu:
+ * bungkus semua rumus dengan delimiter. Renderer (`services/latex.js`) yang
+ * memutuskan tampilan — rumus ringan menjadi teks Unicode (x², H₂O, ×), rumus
+ * bertingkat (pecahan, akar, sigma) menjadi gambar — sehingga rumus yang
+ * dibutuhkan tidak pernah hilang dan yang sepele tidak membebani dokumen.
  */
-export const NOTATION_RULES = `NOTASI MATEMATIKA/KIMIA/FISIKA — pakai hanya bila benar-benar perlu, tetapi jangan dilewati bila memang dibutuhkan:
-- Mapel non-hitungan (bahasa, agama, IPS, seni, dst.) → tanpa LaTeX sama sekali.
-- Tulis sebagai teks biasa (Unicode), BUKAN LaTeX: angka + satuan (25 cm, 3 m/s), pangkat/indeks sederhana (m², cm³, H₂O, CO₂, 10⁻³), persen, dan simbol × ÷ ± ≤ ≥ ≠ ≈ → π α Δ.
-- Pakai LaTeX \\(...\\) (inline) atau \\[...\\] (display) HANYA untuk bentuk yang tidak terbaca baik sebagai teks: pecahan bertingkat (\\frac), akar (\\sqrt), sigma/integral/limit, matriks, dan persamaan bertingkat.
-- Rumus yang dibutuhkan untuk menyelesaikan soal atau kegiatan WAJIB ditulis lengkap; jangan diganti dengan kata-kata.
-- Di dalam JSON, tulis backslash ganda ("\\\\frac{1}{2}"). Jangan membungkus kalimat biasa dengan LaTeX dan jangan memakai tanda $.
-- Tabel di dalam teks (mis. tabel pengamatan pada deskripsi aktivitas atau stimulus soal) tulis sebagai tabel Markdown: baris judul kolom, baris pemisah |---|---|, lalu satu baris per baris data. Jangan memakai HTML atau <br>.`;
+export const NOTATION_RULES = `NOTASI MATEMATIKA/SAINS — satu aturan yang selalu diikuti:
+1. Setiap rumus, persamaan, pecahan, akar, pangkat, indeks, simbol operasi/relasi (×, ÷, ≤, ≥, ≠, ≈, →), dan reaksi kimia WAJIB ditulis dalam LaTeX dan dibungkus \\(...\\) (sebaris) atau \\[...\\] (baris tersendiri). JANGAN PERNAH menulis perintah LaTeX (\\frac, \\sqrt, \\times, dst.) atau tanda ^ dan _ di luar pembungkus itu. Jangan memakai tanda $.
+2. Jangan membungkus kata, kalimat, nama benda, atau angka + satuan tanpa pangkat (mis. 25 cm). Satuan berpangkat ditulis \\(m^{2}\\), \\(cm^{3}\\). Mapel yang tidak memuat rumus (bahasa, agama, IPS, seni, dst.) tidak memakai LaTeX sama sekali.
+3. Rumus yang dibutuhkan untuk menyelesaikan soal atau kegiatan WAJIB ditulis lengkap; jangan diganti kata-kata atau disederhanakan menjadi teks polos. Tulislah semuanya konsisten dalam LaTeX — aplikasi yang menentukan tampilannya (rumus ringan tampil sebagai teks, rumus bertingkat sebagai gambar).
+4. Di dalam JSON, backslash ditulis GANDA. Contoh BENAR:
+   "Luas lingkaran \\\\(L = \\\\pi r^{2}\\\\) dengan \\\\(r = 7\\\\) cm."
+   "Hitung \\\\(\\\\frac{3}{4} + \\\\frac{1}{4}\\\\)."
+   "Reaksi: \\\\(2H_{2} + O_{2} \\\\rightarrow 2H_{2}O\\\\)"
+   opsi jawaban: "A. \\\\(x = 3\\\\)"
+   persamaan tersendiri: "\\\\[x = \\\\frac{-b \\\\pm \\\\sqrt{b^{2} - 4ac}}{2a}\\\\]"
+   Contoh SALAH: \\frac{1}{2} tanpa pembungkus; x^2 tanpa pembungkus; "1/2" untuk pecahan bertingkat.
+5. Tabel di dalam teks (mis. tabel pengamatan pada deskripsi aktivitas atau stimulus soal) tulis sebagai tabel Markdown: baris judul kolom, baris pemisah |---|---|, lalu satu baris per baris data. Jangan memakai HTML atau <br>. Rumus yang memuat tanda | tetap ditulis di dalam \\(...\\).`;
 
 /** Aturan mutu isi — dipakai semua generator. */
 export const CONTENT_QUALITY_RULES = `KUALITAS ISI (utama — lebih penting daripada panjang tulisan):
@@ -82,4 +90,4 @@ Aksara Arab dan Jawa tulis langsung dalam teks aslinya, JANGAN pakai translitera
 
 /** Ringkasan aturan notasi untuk prompt pengguna (per sub-phase). */
 export const LATEX_RULE =
-  'Notasi: teks biasa/Unicode untuk satuan, pangkat/indeks sederhana (m², H₂O), dan simbol (×, ≤, →, π); LaTeX \\(...\\) atau \\[...\\] hanya untuk pecahan, akar, sigma/integral, matriks, atau persamaan bertingkat — dan wajib dipakai bila rumus seperti itu memang dibutuhkan. Mapel non-hitungan: tanpa LaTeX. Tabel dalam teks: Markdown. Aksara Arab/Jawa tulis langsung.';
+  'Notasi: bungkus SEMUA rumus, persamaan, pecahan, akar, pangkat, indeks, dan reaksi kimia dengan \\(...\\) (sebaris) atau \\[...\\] (display) dalam LaTeX; jangan pernah menulis perintah LaTeX atau tanda ^ _ di luar pembungkus, dan jangan pakai $. Kata serta angka+satuan biasa jangan dibungkus; mapel tanpa rumus: tanpa LaTeX. Tabel dalam teks: Markdown. Aksara Arab/Jawa tulis langsung.';

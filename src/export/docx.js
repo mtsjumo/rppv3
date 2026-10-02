@@ -1,16 +1,22 @@
 /**
- * Export DOCX memakai docx.js (UMD, dimuat via CDN di index.html).
+ * Export DOCX memakai docx.js (UMD, dimuat via CDN di index.html, versi 8.5.0).
  *
- * Perbaikan dibanding versi lama (audit: "DOCX accuracy masih bermasalah"):
- *   - List berurutan memakai `numbering` yang benar, bukan paragraf polos.
- *   - List bersarang memakai indentasi bertingkat.
- *   - Block-level walk: tabel/daftar/heading tidak lagi saling menimpa.
- *   - Elemen yang hanya membungkus blok lain di-unwind, bukan digepeng jadi
- *     satu paragraf panjang.
- *   - Rumus LaTeX (<img>) disisipkan sebagai teks LaTeX, bukan gambar —
- *     jauh lebih andal & tetap bisa diedit di Word.
- *   - `<br>` menghasilkan line break asli, bukan hilang.
- *   - Tanda tangan pengesahan jadi tabel dua kolom tanpa border.
+ * Riwayat bug penting (file hasil ekspor berisi tabel kosong tanpa satu pun teks):
+ *   Versi lama membangun ulang setiap TextRun lewat `sizeAll()` yang membaca
+ *   `run.options.text`. Objek TextRun di docx 8.x tidak punya properti `options`
+ *   (isinya hanya rootKey/root/properties), sehingga SEMUA teks menjadi ''.
+ *   Sekarang ukuran dan gaya diteruskan langsung saat run dibuat; tidak ada lagi
+ *   pembacaan properti internal library.
+ *
+ * Perilaku:
+ *   - Daftar berurutan memakai `numbering` yang benar; daftar bersarang beraras.
+ *   - Walk blok/inline yang benar: teks dan elemen inline yang berurutan
+ *     digabung menjadi satu paragraf, blok (tabel, daftar, div) dipisah.
+ *   - Tabel bersarang (tabel di dalam sel) dan daftar di dalam sel didukung;
+ *     baris tabel dalam tidak lagi dihitung sebagai baris tabel luar.
+ *   - Rumus (<img>) ditulis sebagai teks terbaca dari `alt`, bukan gambar.
+ *   - `<br>` menjadi pemisah baris, `<sup>`/`<sub>` menjadi naik/turun.
+ *   - Tanda tangan pengesahan menjadi tabel dua kolom tanpa border.
  *
  * Satu pipeline (`buildBlocks`) dipakai bersama oleh export per-phase maupun
  * export gabungan, jadi keduanya tidak bisa berbeda perilaku.
@@ -22,6 +28,13 @@ const FONT = 'Times New Roman';
 const MARGIN = { top: 1440, right: 1440, bottom: 1440, left: 1440 };
 /** Lebar halaman usable dalam twip (8.5" - 2" margin = 6.5" = 9360 twip). */
 const USABLE_WIDTH_TWIP = 9020;
+/** Ukuran font dalam setengah poin: 22 = 11pt, 20 = 10pt. */
+const BASE_SIZE = 22;
+const TABLE_SIZE = 20;
+/** Penghitung instance numbering: tiap <ol> mendapat nomor sendiri supaya penomoran mulai dari 1. */
+let listInstanceCounter = 0;
+/** Ruang yang dipakai margin dalam sel (kiri + kanan) saat menghitung lebar tabel bersarang. */
+const CELL_PADDING_TWIP = 160;
 
 /** true bila library docx termuat. */
 export function isDocxAvailable() {
@@ -33,9 +46,6 @@ function requireDocx() {
   return globalThis.docx;
 }
 
-const listItems = (el) =>
-  Array.from(el.children || []).filter((c) => c.tagName?.toLowerCase() === 'li');
-
 const textContent = (node) => {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent;
   return Array.from(node.childNodes || [])
@@ -43,18 +53,37 @@ const textContent = (node) => {
     .join('');
 };
 
-const isBoldElement = (el) => {
-  const tag = el.tagName?.toLowerCase();
-  if (tag === 'strong' || tag === 'b' || tag === 'th') return true;
-  const w = (el.style?.fontWeight || '').toString();
-  return w === '700' || w === 'bold';
-};
-
 /** Ubah CSS hex ke format docx (tanpa #). */
 function cssColorToDocx(value) {
   const c = String(value || '').trim();
   return /^#[0-9a-f]{6}$/i.test(c) ? c.slice(1).toUpperCase() : undefined;
 }
+
+const BLOCK_TAGS = new Set([
+  'div',
+  'p',
+  'table',
+  'ol',
+  'ul',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'section',
+  'article',
+  'blockquote',
+  'pre',
+  'hr',
+]);
+
+const isBlockElement = (node) =>
+  node.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(node.tagName.toLowerCase());
+
+/** Elemen yang berisi blok di dalamnya (tabel, daftar, div, dst.). */
+const hasBlockDescendant = (el) =>
+  !!el.querySelector('table, ol, ul, div, p, h1, h2, h3, h4, h5, h6, blockquote, pre');
 
 /**
  * Konversi HTML → array blok docx (Paragraph | Table).
@@ -73,6 +102,7 @@ export function buildBlocks(html, lib) {
     AlignmentType,
     BorderStyle,
     WidthType,
+    PageBreak,
     convertInchesToTwip,
   } = lib;
 
@@ -88,26 +118,40 @@ export function buildBlocks(html, lib) {
       italics: !!opts.italics,
       color: opts.color,
       break: opts.break,
-      size: opts.size ?? 22,
+      superScript: opts.superScript || undefined,
+      subScript: opts.subScript || undefined,
+      underline: opts.underline ? {} : undefined,
+      size: opts.size ?? BASE_SIZE,
       font: FONT,
     });
 
-  /** Walk inline: menghasilkan TextRun[], menghormati bold/italic/warna/<br>. */
+  /**
+   * Walk inline: menghasilkan TextRun[] yang menghormati bold/italic/warna/<br>.
+   * `inherited` membawa gaya dari induk, termasuk `size` — ukuran diteruskan
+   * di sini, BUKAN dengan membangun ulang run sesudahnya.
+   */
   function inlineRuns(el, inherited = {}) {
     const runs = [];
-    const walk = (node) => {
+    const walk = (node, parent) => {
       if (node.nodeType === Node.TEXT_NODE) {
-        const t = node.textContent;
-        if (t) runs.push(makeRun(t, { ...inherited }));
+        // Spasi/indentasi dari template HTML bukan bagian teks: ringkas jadi satu spasi.
+        const t = node.textContent.replace(/\s+/g, ' ');
+        if (t) runs.push(makeRun(t, parent));
         return;
       }
       if (node.nodeType !== Node.ELEMENT_NODE) return;
 
-      const style = { ...inherited };
       const tag = node.tagName.toLowerCase();
+      if (tag === 'script' || tag === 'style' || node.style?.display === 'none') return;
 
+      // Gaya diwariskan dari elemen pembungkus langsung (bukan hanya dari induk paling atas),
+      // sehingga <strong> di dalam <td> tetap tebal.
+      const style = { ...parent };
       if (tag === 'strong' || tag === 'b' || node.style?.fontWeight === '700') style.bold = true;
       if (tag === 'i' || tag === 'em') style.italics = true;
+      if (tag === 'sup') style.superScript = true;
+      if (tag === 'u') style.underline = true;
+      if (tag === 'sub') style.subScript = true;
       if (node.classList?.contains('kunci-jawaban')) {
         style.bold = true;
         style.color = 'C62828';
@@ -120,13 +164,18 @@ export function buildBlocks(html, lib) {
         return;
       }
       if (tag === 'img') {
-        // Rumus LaTeX → teks (docx butuh binary embed; teks jauh lebih andal).
+        // Rumus bertingkat → teks terbaca dari alt (mis. "(a+b)/2", "√(x)").
         if (node.alt) runs.push(makeRun(node.alt, { ...style, italics: true }));
         return;
       }
-      for (const child of Array.from(node.childNodes)) walk(child);
+      for (const child of Array.from(node.childNodes)) walk(child, style);
+      // Blok di dalam konteks inline (mis. <div> dalam <span>): beri pemisah baris
+      // supaya paragraf-paragrafnya tidak menempel.
+      if ((tag === 'div' || tag === 'p') && node.nextSibling) {
+        runs.push(makeRun('', { ...style, break: 1 }));
+      }
     };
-    for (const child of Array.from(el.childNodes)) walk(child);
+    for (const child of Array.from(el.childNodes)) walk(child, inherited);
     return runs;
   }
 
@@ -144,11 +193,7 @@ export function buildBlocks(html, lib) {
     });
   };
 
-  const sizeAll = (runs, size) =>
-    runs.map((r) => {
-      const o = r.options ?? {};
-      return makeRun(o.text ?? '', { ...o, size });
-    });
+  const spacer = (after = 120) => new Paragraph({ children: [], spacing: { after } });
 
   // ---- Tabel -------------------------------------------------------------
   const thinBorder = { style: BorderStyle.SINGLE, size: 4, color: 'BDBDBD' };
@@ -161,37 +206,45 @@ export function buildBlocks(html, lib) {
     insideVertical: thinBorder,
   };
 
-  function convertTable(tblEl) {
-    const rows = Array.from(tblEl.querySelectorAll('tr'));
+  function convertTable(tblEl, ctx) {
+    // `rows` / `cells` hanya mencakup anak langsung tabel ini, sehingga baris dan
+    // sel milik tabel bersarang tidak ikut terhitung.
+    const rows = Array.from(tblEl.rows);
     if (!rows.length) return null;
 
-    const colCount = Math.max(...rows.map((tr) => tr.querySelectorAll('td, th').length), 1);
-    const colWidth = Math.floor(USABLE_WIDTH_TWIP / colCount);
+    const width = ctx.width ?? USABLE_WIDTH_TWIP;
+    const spanOf = (cell) => Math.max(1, cell.colSpan || 1);
+    const colCount = Math.max(
+      ...rows.map((tr) => Array.from(tr.cells).reduce((n, cell) => n + spanOf(cell), 0)),
+      1
+    );
+    const colWidth = Math.floor(width / colCount);
 
     const tableRows = rows.map((tr) => {
-      const isHeaderRow = tr.querySelector('th') !== null;
-      const cells = Array.from(tr.querySelectorAll('td, th'));
+      const cells = Array.from(tr.cells);
       return new TableRow({
         children: cells.map((cell) => {
-          const runs = sizeAll(inlineRuns(cell), 20);
-          const shading = isHeaderRow ? { fill: 'FCE4EC' } : undefined;
+          const isHeader = cell.tagName.toLowerCase() === 'th';
+          const span = spanOf(cell);
+          const cellWidth = colWidth * span;
+          const cellBlocks = [];
+          walkBlocks(cell, cellBlocks, {
+            size: TABLE_SIZE,
+            bold: isHeader,
+            width: Math.max(cellWidth - CELL_PADDING_TWIP, 1200),
+            listDepth: 0,
+          });
+          // Sel wajib berisi paragraf, dan harus DIAKHIRI paragraf (syarat Word
+          // bila isinya berakhir dengan tabel bersarang).
+          if (!cellBlocks.length || cellBlocks[cellBlocks.length - 1] instanceof Table) {
+            cellBlocks.push(new Paragraph({ children: [] }));
+          }
           return new TableCell({
-            width: { size: colWidth, type: WidthType.DXA },
-            shading,
+            width: { size: cellWidth, type: WidthType.DXA },
+            columnSpan: span > 1 ? span : undefined,
+            shading: isHeader ? { fill: 'FCE4EC' } : undefined,
             margins: { top: 60, bottom: 60, left: 80, right: 80 },
-            children: [
-              new Paragraph({
-                children: sizeAll(
-                  runs.map((r) =>
-                    makeRun(r.options?.text ?? '', {
-                      ...r.options,
-                      bold: isHeaderRow || isBoldElement(cell),
-                    })
-                  ),
-                  20
-                ),
-              }),
-            ],
+            children: cellBlocks,
           });
         }),
       });
@@ -199,8 +252,9 @@ export function buildBlocks(html, lib) {
 
     return new Table({
       rows: tableRows,
+      columnWidths: Array.from({ length: colCount }, () => colWidth),
       borders: tableBorders,
-      width: { size: 100, type: WidthType.PERCENTAGE },
+      width: { size: width, type: WidthType.DXA },
     });
   }
 
@@ -215,11 +269,11 @@ export function buildBlocks(html, lib) {
       const paragraphs = fragments.map((frag) => {
         const tmp = document.createElement('div');
         tmp.innerHTML = frag;
-        const runs = sizeAll(inlineRuns(tmp), 22);
+        const runs = inlineRuns(tmp, { size: BASE_SIZE });
         return new Paragraph({
           alignment: AlignmentType.CENTER,
           spacing: { before: 20, after: 20 },
-          children: runs.length ? runs : [new TextRun({ text: '', size: 22, font: FONT })],
+          children: runs.length ? runs : [new TextRun({ text: '', size: BASE_SIZE, font: FONT })],
         });
       });
       return new TableCell({
@@ -229,42 +283,43 @@ export function buildBlocks(html, lib) {
     };
     return [
       new Table({
-        rows: [new TableRow({ children: Array.from(row.querySelectorAll('td')).map(cell) })],
+        rows: [new TableRow({ children: Array.from(row.cells).map(cell) })],
         width: { size: 100, type: WidthType.PERCENTAGE },
       }),
-      new Paragraph({ children: [], spacing: { after: 200 } }),
+      spacer(200),
     ];
   }
 
   // ---- Daftar ------------------------------------------------------------
-  function convertList(listEl, depth) {
+  function convertList(listEl, ctx) {
     const out = [];
     const ordered = listEl.tagName.toLowerCase() === 'ol';
+    const depth = ctx.listDepth ?? 0;
     const level = Math.min(depth, 8);
+    // Tiap daftar berurutan memakai instance baru; tanpa ini semua <ol> dalam satu
+    // dokumen (termasuk antar phase pada ekspor gabungan) melanjutkan satu penomoran.
+    const instance = ordered ? ++listInstanceCounter : undefined;
 
-    for (const li of listItems(listEl)) {
-      // Pisahkan anak list (untuk diproses rekursif) dari sisanya.
-      const nested = Array.from(li.children).filter((c) => {
-        const t = c.tagName?.toLowerCase();
-        return t === 'ol' || t === 'ul';
-      });
+    for (const li of Array.from(listEl.children).filter((c) => c.tagName?.toLowerCase() === 'li')) {
+      // Isi inline item = bagian yang bukan blok; blok (daftar bersarang, tabel,
+      // div) diproses terpisah sesudah baris item itu sendiri.
       const clone = li.cloneNode(true);
-      Array.from(clone.children).forEach((c) => {
-        const t = c.tagName?.toLowerCase();
-        if (t === 'ol' || t === 'ul') c.remove();
-      });
+      const blockKids = Array.from(clone.children).filter(
+        (c) => isBlockElement(c) || hasBlockDescendant(c)
+      );
+      blockKids.forEach((c) => c.remove());
 
-      const runs = sizeAll(inlineRuns(clone), 20);
+      const runs = inlineRuns(clone, { size: TABLE_SIZE, bold: ctx.bold });
       if (runs.length) {
         out.push(
           new Paragraph({
             children: runs,
             spacing: { before: 40, after: 20 },
-            numbering: { reference: ordered ? 'rpp-list' : 'rpp-bullet', level },
+            numbering: { reference: ordered ? 'rpp-list' : 'rpp-bullet', level, instance },
           })
         );
       }
-      for (const child of nested) out.push(...convertList(child, depth + 1));
+      for (const child of blockKids) emitBlock(child, out, { ...ctx, listDepth: depth + 1 });
     }
     return out;
   }
@@ -272,108 +327,136 @@ export function buildBlocks(html, lib) {
   // ---- Opsi paragraf per kelas elemen ------------------------------------
   function paraOptionsFor(el) {
     const cls = el.classList;
-    if (cls.contains('soal-nomor'))
-      return { bold: true, size: 22, spacing: { before: 140, after: 40 } };
-    if (cls.contains('soal-opsi')) {
-      return { size: 20, indent: { left: convertInchesToTwip(0.4) }, spacing: { after: 20 } };
+    if (cls.contains('soal-nomor')) {
+      return { bold: true, size: BASE_SIZE, spacing: { before: 140, after: 40 } };
+    }
+    if (cls.contains('soal-opsi') && !cls.contains('kunci-jawaban')) {
+      return {
+        size: TABLE_SIZE,
+        indent: { left: convertInchesToTwip(0.4) },
+        spacing: { after: 20 },
+      };
     }
     if (cls.contains('kunci-jawaban')) {
       return {
         bold: true,
-        size: 20,
+        size: TABLE_SIZE,
         indent: { left: convertInchesToTwip(0.4) },
         spacing: { after: 60 },
       };
     }
-    if (el.style?.textAlign === 'justify') return { alignment: AlignmentType.JUSTIFIED, size: 22 };
-    if (el.style?.textAlign === 'center') return { alignment: AlignmentType.CENTER, size: 22 };
+    if (el.style?.textAlign === 'justify') return { alignment: AlignmentType.JUSTIFIED };
+    if (el.style?.textAlign === 'center') return { alignment: AlignmentType.CENTER };
     return {};
   }
 
-  /** Elemen yang hanya membungkus blok lain → unwind, jangan digepeng. */
-  function isWrapper(el) {
-    if (el.tagName?.toLowerCase() !== 'div') return false;
-    if (!el.textContent.trim()) return true;
-    const hasDirectText = Array.from(el.childNodes).some(
-      (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
-    );
-    if (hasDirectText) return false;
-    return !!el.querySelector('table, ol, ul, .section-header, .sub-header, div');
-  }
+  // ---- Walk blok ---------------------------------------------------------
 
-  // ---- Walk utama --------------------------------------------------------
-  function walk(node) {
-    for (const child of Array.from(node.childNodes)) {
-      if (child.nodeType === Node.TEXT_NODE) {
-        const t = child.textContent.trim();
-        if (t) blocks.push(new Paragraph({ children: [makeRun(t, { size: 22 })] }));
-        continue;
-      }
-      if (child.nodeType !== Node.ELEMENT_NODE) continue;
+  /**
+   * Telusuri anak-anak `parent`. Node inline yang berurutan (teks, <strong>,
+   * <span>, <img>, <br>) digabung menjadi SATU paragraf; elemen blok diproses
+   * lewat `emitBlock`.
+   */
+  function walkBlocks(parent, out, ctx) {
+    let buffer = [];
+    const flush = () => {
+      if (!buffer.length) return;
+      const holder = document.createElement('div');
+      for (const n of buffer) holder.appendChild(n.cloneNode(true));
+      buffer = [];
+      if (!holder.textContent.trim() && !holder.querySelector('img, br')) return;
+      const p = para(inlineRuns(holder, { size: ctx.size, bold: ctx.bold }));
+      if (p) out.push(p);
+    };
 
-      const tag = child.tagName.toLowerCase();
-      const cls = child.classList;
-
-      if (cls.contains('doc-title')) {
-        const p = para(sizeAll(inlineRuns(child), 30), {
-          bold: true,
-          alignment: AlignmentType.CENTER,
-          spacing: { before: 200, after: 120 },
-        });
-        if (p) blocks.push(p);
-        continue;
+    for (const child of Array.from(parent.childNodes)) {
+      if (
+        child.nodeType === Node.ELEMENT_NODE &&
+        (isBlockElement(child) || hasBlockDescendant(child))
+      ) {
+        flush();
+        emitBlock(child, out, ctx);
+      } else if (child.nodeType === Node.TEXT_NODE || child.nodeType === Node.ELEMENT_NODE) {
+        buffer.push(child);
       }
-      if (cls.contains('doc-subtitle')) {
-        const p = para(sizeAll(inlineRuns(child), 24), {
-          bold: true,
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 200 },
-        });
-        if (p) blocks.push(p);
-        continue;
-      }
-      if (cls.contains('section-header')) {
-        const p = para(sizeAll(inlineRuns(child), 24), {
-          bold: true,
-          heading: HeadingLevel.HEADING_2,
-          shading: { fill: 'FCE4EC' },
-          border: { left: { style: BorderStyle.SINGLE, size: 18, color: 'E91E63', space: 6 } },
-          spacing: { before: 240, after: 100 },
-        });
-        if (p) blocks.push(p);
-        continue;
-      }
-      if (cls.contains('sub-header')) {
-        const p = para(sizeAll(inlineRuns(child), 22), {
-          bold: true,
-          shading: { fill: 'E3F2FD' },
-          spacing: { before: 160, after: 80 },
-        });
-        if (p) blocks.push(p);
-        continue;
-      }
-      if (tag === 'table') {
-        const converted = cls.contains('pengesahan-table')
-          ? convertSignatureTable(child)
-          : [convertTable(child), new Paragraph({ children: [], spacing: { after: 120 } })];
-        converted.filter(Boolean).forEach((b) => blocks.push(b));
-        continue;
-      }
-      if (tag === 'ol' || tag === 'ul') {
-        convertList(child, 0).forEach((b) => blocks.push(b));
-        continue;
-      }
-      if (isWrapper(child)) {
-        walk(child);
-        continue;
-      }
-      const opts = paraOptionsFor(child);
-      const p = para(sizeAll(inlineRuns(child), opts.size ?? 22), opts);
-      if (p) blocks.push(p);
     }
+    flush();
   }
 
-  walk(container);
+  /** Ubah satu elemen blok menjadi paragraf/tabel/daftar. */
+  function emitBlock(el, out, ctx) {
+    const tag = el.tagName.toLowerCase();
+    const cls = el.classList;
+    const heading = (size, options) => {
+      // Warna eksplisit: tanpa ini judul memakai biru bawaan gaya Heading Word.
+      const p = para(inlineRuns(el, { size, bold: true, color: '212121' }), options);
+      if (p) out.push(p);
+    };
+
+    // Elemen bisa sekaligus judul DAN pemisah halaman (mis. "section-header page-break"):
+    // sisipkan pemisah halaman, lalu tetap proses teksnya. Hanya elemen kosong yang berhenti di sini.
+    if (cls.contains('page-break')) {
+      out.push(new Paragraph({ children: [new PageBreak()] }));
+      if (!el.textContent.trim()) return;
+    }
+    if (cls.contains('doc-title')) {
+      heading(30, { alignment: AlignmentType.CENTER, spacing: { before: 200, after: 120 } });
+      return;
+    }
+    if (cls.contains('doc-subtitle')) {
+      heading(24, { alignment: AlignmentType.CENTER, spacing: { after: 200 } });
+      return;
+    }
+    if (cls.contains('section-header')) {
+      heading(24, {
+        heading: HeadingLevel.HEADING_2,
+        shading: { fill: 'FCE4EC' },
+        border: { left: { style: BorderStyle.SINGLE, size: 18, color: 'E91E63', space: 6 } },
+        spacing: { before: 240, after: 100 },
+      });
+      return;
+    }
+    if (cls.contains('sub-header')) {
+      heading(BASE_SIZE, { shading: { fill: 'E3F2FD' }, spacing: { before: 160, after: 80 } });
+      return;
+    }
+    if (tag === 'table') {
+      if (cls.contains('pengesahan-table')) {
+        out.push(...convertSignatureTable(el));
+      } else {
+        const table = convertTable(el, ctx);
+        if (table) out.push(table, spacer(120));
+      }
+      return;
+    }
+    if (tag === 'ol' || tag === 'ul') {
+      out.push(...convertList(el, ctx));
+      return;
+    }
+    if (tag === 'hr') return;
+
+    // Pembungkus (atau elemen campuran inline + blok): urai, jangan digepeng.
+    if (hasBlockDescendant(el)) {
+      walkBlocks(el, out, ctx);
+      return;
+    }
+
+    // Paragraf biasa.
+    const opts = paraOptionsFor(el);
+    const runs = inlineRuns(el, {
+      size: opts.size ?? ctx.size,
+      bold: opts.bold || ctx.bold,
+    });
+    const p = para(runs, opts);
+    if (p) out.push(p);
+  }
+
+  walkBlocks(container, blocks, {
+    size: BASE_SIZE,
+    bold: false,
+    width: USABLE_WIDTH_TWIP,
+    listDepth: 0,
+  });
 
   if (!blocks.length) {
     blocks.push(new Paragraph({ children: [makeRun('(dokumen kosong)')] }));
@@ -390,7 +473,10 @@ function numberingConfig(lib) {
       format,
       text: textFor(level),
       alignment: AlignmentType.START,
-      style: { paragraph: { indent: { left: convertInchesToTwip(0.3 + level * 0.25) } } },
+      style: {
+        paragraph: { indent: { left: convertInchesToTwip(0.3 + level * 0.25) } },
+        run: { size: TABLE_SIZE, font: FONT },
+      },
     }));
 
   return {

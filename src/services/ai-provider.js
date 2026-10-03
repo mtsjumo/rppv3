@@ -158,10 +158,9 @@ export async function callAIProvider(
       : isKilo
         ? `${KILO_BASE}/chat/completions`
         : `${OPENROUTER_BASE}/chat/completions`;
-    // Poolside tidak mengirim header CORS → wajib lewat proxy.
-    // Kilo: direct tanpa proxy (keputusan eksplisit; bila browser memblokir,
-    // Test API akan menampilkan alasannya).
-    if (isPoolside) url = withCorsProxy(url);
+    // Poolside & Kilo tidak mengirim header CORS → wajib lewat worker
+    // (allowlist worker: inference.poolside.ai + api.kilo.ai).
+    if (isPoolside || isKilo) url = withCorsProxy(url);
 
     const headers = { 'Content-Type': 'application/json' };
     if (key) headers.Authorization = `Bearer ${key}`;

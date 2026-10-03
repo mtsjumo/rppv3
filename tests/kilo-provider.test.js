@@ -55,7 +55,7 @@ test('kilo dengan key: header Authorization terkirim', async () => {
   assert.equal(auth, 'Bearer kk-uji');
 });
 
-test('kilo direct tanpa proxy walau worker terkonfigurasi', async () => {
+test('kilo lewat worker bila dikonfigurasi (wajib: tanpa header CORS)', async () => {
   let url = '';
   setupKilo({
     fetchImpl: async (u) => {
@@ -65,8 +65,8 @@ test('kilo direct tanpa proxy walau worker terkonfigurasi', async () => {
   });
   store.state.settings.corsProxy = 'https://proxy.uji/?url=';
   assert.equal(await callAIProvider('kilo-auto/free', MESSAGES, 5000, 100), 'x');
-  assert.match(url, /^https:\/\/api\.kilo\.ai\//, 'kilo direct, tanpa proxy');
-  assert.doesNotMatch(url, /proxy\.uji/, 'worker tidak dipakai untuk Kilo');
+  assert.match(url, /^https:\/\/proxy\.uji\//, 'kilo wajib lewat proxy');
+  assert.match(url, /api\.kilo\.ai/, 'target proxy tetap Kilo');
 });
 
 test('konten reasoning dipakai bila content kosong (model thinking)', async () => {

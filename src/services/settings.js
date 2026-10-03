@@ -127,7 +127,8 @@ async function testKiloConnection() {
   const headers = { 'Content-Type': 'application/json' };
   if (s.kiloKey) headers.Authorization = `Bearer ${s.kiloKey}`;
   try {
-    const res = await fetch(withCorsProxy(`${KILO_BASE}/chat/completions`), {
+    // Direct tanpa proxy (keputusan eksplisit).
+    const res = await fetch(`${KILO_BASE}/chat/completions`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -153,7 +154,15 @@ async function testKiloConnection() {
     if (!String(text).trim()) return { ok: false, message: '❌ Kilo membalas kosong — coba model lain' };
     return { ok: true, message: `✅ Kilo (${s.kiloModel || KILO_DEFAULT_MODEL}): AI merespons` };
   } catch (e) {
-    return { ok: false, message: `❌ ${e.message || e}` };
+    const msg = e.message || String(e);
+    if (/failed to fetch|load failed|networkerror|network request failed/i.test(msg)) {
+      return {
+        ok: false,
+        message:
+          '⛔ Browser diblokir Kilo (CORS: api.kilo.ai tanpa header izin). Endpoint Kilo hanya bisa dipanggil server/proxy, bukan langsung dari browser.',
+      };
+    }
+    return { ok: false, message: `❌ ${msg}` };
   }
 }
 

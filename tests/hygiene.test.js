@@ -149,7 +149,7 @@ test('package.json valid dan punya script wajib', () => {
  * - latex.codecogs.com                   : render rumus LaTeX jadi gambar
  * - rpp-generator.github.io              : fallback nilai header HTTP-Referer
  * - rpp.andys-riyans.workers.dev         : worker CORS milik project ini
- *                                          (dipakai hanya bila provider=Poolside/Kilo)
+ *                                          (dipakai hanya bila provider=Poolside)
  */
 const ALLOWED_HOSTS = new Set([
   'openrouter.ai',

@@ -24,6 +24,21 @@ export const POOLSIDE_BASE = 'https://inference.poolside.ai/v1';
 export const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 
 /**
+ * Kilo (jalur OpenRouter Kilo, OpenAI-compatible).
+ *
+ * Tanpa API key tetap jalan (anonim, limit 200 req/jam per IP — satu IP
+ * sekolah dipakai bersama!). Dengan key resmi gratis (daftar tanpa kartu
+ * kredit) limit lebih longgar. Wajib lewat CORS proxy dari browser.
+ */
+export const KILO_BASE = 'https://api.kilo.ai/api/openrouter';
+export const KILO_DEFAULT_MODEL = 'kilo-auto/free';
+export const KILO_MODELS = [
+  'kilo-auto/free',
+  'qwen/qwen3.8-27b:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+];
+
+/**
  * Tier model Puter.js (dipakai bila provider aktif = 'puter').
  *
  * Tanpa API key — tiap guru login pakai akun Puter sendiri (User-Pays) dan

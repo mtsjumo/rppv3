@@ -12,7 +12,7 @@ import {
   testConnection,
 } from '../services/settings.js';
 import { showToast } from './toast.js';
-import { DEFAULT_WORKER_URL, PUTER_DEFAULT_MODEL, PUTER_QUOTA_WARN_PCT } from '../config.js';
+import { DEFAULT_WORKER_URL, KILO_DEFAULT_MODEL, PUTER_DEFAULT_MODEL, PUTER_QUOTA_WARN_PCT } from '../config.js';
 
 const FIELD_IDS = {
   provider: 'set-provider',
@@ -20,6 +20,8 @@ const FIELD_IDS = {
   poolsideKey: 'poolside-key',
   poolsideModel: 'poolside-model',
   corsProxy: 'poolside-proxy',
+  kiloKey: 'kilo-key',
+  kiloModel: 'kilo-model',
   puterModel: 'puter-model',
   model: 'model-select',
   customModel: 'model-custom',
@@ -39,6 +41,10 @@ export function applySettingsToUI() {
   $('#poolside-proxy').value = s.corsProxy || '';
   const puterModelEl = $('#puter-model');
   if (puterModelEl) puterModelEl.value = s.puterModel || PUTER_DEFAULT_MODEL;
+  const kiloKeyEl = $('#kilo-key');
+  if (kiloKeyEl) kiloKeyEl.value = s.kiloKey || '';
+  const kiloModelEl = $('#kilo-model');
+  if (kiloModelEl) kiloModelEl.value = s.kiloModel || KILO_DEFAULT_MODEL;
   $('#model-select').value = s.model === s.customModel ? 'custom' : s.model;
   $('#model-custom').value = s.customModel || '';
   $('#fallback-model').value = s.fallbackModel || 'openrouter/free';
@@ -62,15 +68,19 @@ export function onProviderChange(save = true) {
   const provider = $('#set-provider')?.value || 'puter';
   const isPoolside = provider === 'poolside';
   const isPuter = provider === 'puter';
+  const isKilo = provider === 'kilo';
 
   $$('.grp-openrouter').forEach((el) => {
-    el.style.display = isPoolside || isPuter ? 'none' : '';
+    el.style.display = isPoolside || isPuter || isKilo ? 'none' : '';
   });
   $$('.grp-poolside').forEach((el) => {
     el.style.display = isPoolside ? '' : 'none';
   });
   $$('.grp-puter').forEach((el) => {
     el.style.display = isPuter ? '' : 'none';
+  });
+  $$('.grp-kilo').forEach((el) => {
+    el.style.display = isKilo ? '' : 'none';
   });
 
   const hint = $('#provider-hint');
@@ -79,11 +89,13 @@ export function onProviderChange(save = true) {
       hint,
       isPuter
         ? 'Login Puter — tiap guru memakai jatah akunnya sendiri, tanpa API key.'
-        : isPoolside
-          ? DEFAULT_WORKER_URL
-            ? '✓ Terhubung via worker bawaan — cukup isi API key di bawah.'
-            : 'Poolside tidak mengizinkan panggilan langsung dari browser — buka Pengaturan lanjutan di bawah.'
-          : 'Gunakan API key OpenRouter untuk model-model gratis.'
+        : isKilo
+          ? 'Kilo gratis — key opsional. Tanpa key, limit 200 req/jam dipakai bersama satu IP.'
+          : isPoolside
+            ? DEFAULT_WORKER_URL
+              ? '✓ Terhubung via worker bawaan — cukup isi API key di bawah.'
+              : 'Poolside tidak mengizinkan panggilan langsung dari browser — buka Pengaturan lanjutan di bawah.'
+            : 'Gunakan API key OpenRouter untuk model-model gratis.'
     );
   }
   setText($('#api-status'), '');
@@ -198,6 +210,9 @@ export function saveSettings() {
   s.apiKey = s.openRouterKey || '';
   s.poolsideModel = poolsideModel;
   s.puterModel = val(FIELD_IDS.puterModel) || PUTER_DEFAULT_MODEL;
+  const kiloKey = val(FIELD_IDS.kiloKey);
+  if (kiloKey) s.kiloKey = kiloKey;
+  s.kiloModel = val(FIELD_IDS.kiloModel) || KILO_DEFAULT_MODEL;
   s.corsProxy = corsProxy;
   s.customModel = custom;
   s.fallbackModel = fallback;
@@ -227,8 +242,8 @@ export async function handleTestAPI(button) {
   status.innerHTML = result.message;
   if (result.ok) {
     adoptTestedKey();
-    // Puter tidak pakai key — jangan sentuh key OpenRouter/Poolside.
-    if (store.state.settings.provider !== 'puter') {
+    // Puter & Kilo tidak pakai key wajib — jangan sentuh key OpenRouter/Poolside.
+    if (store.state.settings.provider !== 'puter' && store.state.settings.provider !== 'kilo') {
       const key = activeApiKey();
       if (store.state.settings.provider === 'poolside') store.state.settings.poolsideKey = key;
       else {
@@ -254,6 +269,9 @@ function saveSettingsSilently() {
   s.apiKey = s.openRouterKey || '';
   s.poolsideModel = val(FIELD_IDS.poolsideModel) || 'poolside/laguna-s-2.1';
   s.puterModel = val(FIELD_IDS.puterModel) || PUTER_DEFAULT_MODEL;
+  const kiloKeySilent = val(FIELD_IDS.kiloKey);
+  if (kiloKeySilent) s.kiloKey = kiloKeySilent;
+  s.kiloModel = val(FIELD_IDS.kiloModel) || KILO_DEFAULT_MODEL;
   s.corsProxy = val(FIELD_IDS.corsProxy);
   s.customModel = val(FIELD_IDS.customModel);
   s.fallbackModel = val(FIELD_IDS.fallbackModel);

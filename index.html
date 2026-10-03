@@ -74,6 +74,7 @@
             <label for="set-provider">Provider AI</label>
             <select class="form-select" id="set-provider">
               <option value="puter">Puter (login, tanpa API key) — disarankan</option>
+              <option value="kilo">Kilo (gratis, key opsional)</option>
               <option value="openrouter">OpenRouter</option>
               <option value="poolside">Poolside (Laguna)</option>
             </select>
@@ -105,6 +106,35 @@
               >Biaya dari pengukuran sendiri. Gagal → otomatis turun ke tier hemat. Tier Canggih bisa menghabiskan jatah
               gratis dalam 1 RPP.</span
             >
+          </div>
+
+          <div class="form-group form-full grp-kilo" style="display: none">
+            <label for="kilo-key">Kilo API Key (opsional — kosongkan untuk mode gratis)</label>
+            <input
+              type="password"
+              class="form-input"
+              id="kilo-key"
+              placeholder="kosong = anonim (limit 200 req/jam per IP)"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <span class="form-hint"
+              >Tanpa key tetap jalan (anonim). Satu IP sekolah dipakai bersama (limit bersama!),
+              jadi untuk pemakaian rutin ambil key gratis di
+              <a href="https://kilo.ai" target="_blank" rel="noopener noreferrer"
+                >kilo.ai</a
+              ></span
+            >
+          </div>
+
+          <div class="form-group grp-kilo" style="display: none">
+            <label for="kilo-model">Model Kilo</label>
+            <select class="form-select" id="kilo-model">
+              <option value="kilo-auto/free">Kilo Auto (gratis, router otomatis) — disarankan</option>
+              <option value="qwen/qwen3.8-27b:free">Qwen3.8 27B (gratis)</option>
+              <option value="nvidia/nemotron-3-super-120b-a12b:free">Nemotron-3-Super 120B (gratis)</option>
+            </select>
+            <span class="form-hint">Model bertanda :free berubah-ubah; kilo-auto memilih yang tersedia.</span>
           </div>
 
           <div class="form-group form-full grp-openrouter">

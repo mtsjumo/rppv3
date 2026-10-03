@@ -8,6 +8,8 @@ import { withCorsProxy } from './ai-provider.js';
 import { showToast } from '../ui/toast.js';
 import {
   DEFAULT_WORKER_URL,
+  KILO_BASE,
+  KILO_DEFAULT_MODEL,
   OPENROUTER_BASE,
   POOLSIDE_BASE,
   PUTER_DEFAULT_MODEL,
@@ -30,6 +32,7 @@ export function loadSettings() {
   const s = store.state.settings;
   if (!s.provider) s.provider = 'puter';
   if (!s.puterModel) s.puterModel = PUTER_DEFAULT_MODEL;
+  if (!s.kiloModel) s.kiloModel = KILO_DEFAULT_MODEL;
   if (!s.poolsideModel) s.poolsideModel = 'poolside/laguna-s-2.1';
   if (!s.corsProxy) s.corsProxy = DEFAULT_WORKER_URL;
   if (!s.fallbackModel) s.fallbackModel = 'openrouter/free';
@@ -43,10 +46,11 @@ export function persistSettings() {
   return writeJson(STORAGE_KEYS.settings, store.state.settings);
 }
 
-/** API key aktif untuk provider aktif (Puter tidak pakai key). */
+/** API key aktif untuk provider aktif (Puter & Kilo-boleh-kosong tidak wajib key). */
 export function activeApiKey() {
   const s = store.state.settings;
   if (s.provider === 'puter') return '';
+  if (s.provider === 'kilo') return s.kiloKey || '';
   return s.provider === 'poolside' ? s.poolsideKey || '' : s.openRouterKey || s.apiKey || '';
 }
 
@@ -57,6 +61,7 @@ export function activeApiKey() {
 export async function testConnection() {
   const provider = store.state.settings.provider || 'puter';
   if (provider === 'puter') return testPuterConnection();
+  if (provider === 'kilo') return testKiloConnection();
   const key = activeApiKey();
 
   if (!key) {
@@ -99,15 +104,48 @@ export async function testConnection() {
   } catch (e) {
     const msg = e.message || String(e);
     if (/failed to fetch|load failed|networkerror|network request failed/i.test(msg)) {
-      return {
-        ok: false,
-        message:
-          provider === 'poolside' && !(store.state.settings.corsProxy || '').trim()
-            ? '⛔ Browser memblokir request (CORS): Poolside tidak mengizinkan panggilan langsung dari browser. Isi Worker / Proxy URL milik sendiri lalu Test lagi.'
-            : `❌ Jaringan diblokir: ${msg}`,
-      };
+      const noProxy = !(store.state.settings.corsProxy || '').trim();
+      if ((provider === 'poolside' || provider === 'kilo') && noProxy) {
+        const who = provider === 'poolside' ? 'Poolside' : 'Kilo';
+        return {
+          ok: false,
+          message: `⛔ Browser memblokir request (CORS): ${who} tidak mengizinkan panggilan langsung dari browser. Isi Worker / Proxy URL milik sendiri lalu Test lagi.`,
+        };
+      }
+      return { ok: false, message: `❌ Jaringan diblokir: ${msg}` };
     }
     return { ok: false, message: `❌ ${msg}` };
+  }
+}
+
+/**
+ * Uji Kilo dengan satu panggilan chat ringan (max_tokens lega agar tidak
+ * terpotong reasoning). Key opsional: kosong = mode anonim.
+ */
+async function testKiloConnection() {
+  const s = store.state.settings;
+  const headers = { 'Content-Type': 'application/json' };
+  if (s.kiloKey) headers.Authorization = `Bearer ${s.kiloKey}`;
+  try {
+    const res = await fetch(withCorsProxy(`${KILO_BASE}/chat/completions`), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: s.kiloModel || KILO_DEFAULT_MODEL,
+        messages: [{ role: 'user', content: 'Balas hanya: ok' }],
+        max_tokens: 200,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { ok: false, message: `❌ ${err.error?.message || err.message || res.statusText}` };
+    }
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content ?? '';
+    if (!String(text).trim()) return { ok: false, message: '❌ Kilo membalas kosong — coba model lain' };
+    return { ok: true, message: `✅ Kilo (${s.kiloModel || KILO_DEFAULT_MODEL}): AI merespons` };
+  } catch (e) {
+    return { ok: false, message: `❌ ${e.message || e}` };
   }
 }
 
@@ -152,6 +190,10 @@ async function testPuterConnection() {
 export function adoptTestedKey() {
   const s = store.state.settings;
   if (s.provider === 'puter') {
+    persistSettings();
+    return;
+  }
+  if (s.provider === 'kilo') {
     persistSettings();
     return;
   }

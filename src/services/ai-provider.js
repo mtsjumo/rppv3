@@ -17,6 +17,8 @@
 import { store } from '../core/store.js';
 import { friendlyError } from './json.js';
 import {
+  KILO_BASE,
+  KILO_DEFAULT_MODEL,
   OPENROUTER_BASE,
   POOLSIDE_BASE,
   PUTER_DEFAULT_MODEL,
@@ -49,10 +51,11 @@ export function currentProvider() {
   return store.state.settings.provider || 'openrouter';
 }
 
-/** API key untuk provider aktif. Puter tidak pakai key (login akun). */
+/** API key untuk provider aktif. Puter & Kilo-boleh-kosong tidak butuh key. */
 export function currentApiKey() {
   const s = store.state.settings;
   if (currentProvider() === 'puter') return '';
+  if (currentProvider() === 'kilo') return s.kiloKey || '';
   return currentProvider() === 'poolside' ? s.poolsideKey || '' : s.openRouterKey || s.apiKey || '';
 }
 
@@ -137,7 +140,8 @@ export async function callAIProvider(
     }
   }
   const key = currentApiKey();
-  if (!key) {
+  // Kilo boleh tanpa key (mode anonim, limit IP bersama).
+  if (!key && provider !== 'kilo') {
     cleanupTimers();
     throw new Error(missingKeyMessage());
   }
@@ -148,24 +152,26 @@ export async function callAIProvider(
 
   try {
     const isPoolside = provider === 'poolside';
+    const isKilo = provider === 'kilo';
     let url = isPoolside
       ? `${POOLSIDE_BASE}/chat/completions`
-      : `${OPENROUTER_BASE}/chat/completions`;
-    if (isPoolside) url = withCorsProxy(url);
+      : isKilo
+        ? `${KILO_BASE}/chat/completions`
+        : `${OPENROUTER_BASE}/chat/completions`;
+    // Poolside & Kilo tidak mengirim header CORS → wajib lewat proxy.
+    if (isPoolside || isKilo) url = withCorsProxy(url);
 
-    const headers = {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    };
-    if (!isPoolside) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (key) headers.Authorization = `Bearer ${key}`;
+    if (!isPoolside && !isKilo) {
       headers['HTTP-Referer'] = window.location.origin || 'https://rpp-generator.github.io';
       headers['X-Title'] = 'AI RPP Generator';
     }
 
     const body = { model, messages, temperature: 0.3, max_tokens: maxTokens };
-    // response_format & top_p hanya didukung OpenRouter — Poolside mengandalkan
-    // instruksi JSON + extractJSON().
-    if (!isPoolside) {
+    // response_format & top_p hanya didukung OpenRouter — Poolside & Kilo
+    // mengandalkan instruksi JSON + extractJSON() + JSON-retry.
+    if (!isPoolside && !isKilo) {
       body.response_format = { type: 'json_object' };
       body.top_p = 0.9;
     }
@@ -392,15 +398,20 @@ async function readEventStream(res, onProgress, onActivity) {
  * Ambil konten teks dari berbagai bentuk respons yang dipakai model berbeda.
  * - string biasa
  * - array of content parts (OpenAI vision/part format)
- * - `reasoning_content` (model reasoning/agentic, cth. Laguna) saat `content` kosong
+ * - `reasoning_content`/`reasoning` (model reasoning/agentic, cth. Laguna,
+ *   Kilo thinking) saat `content` kosong
  */
 function extractContent(data) {
   const msgObj = data.choices?.[0]?.message || data.choices?.[0]?.text || {};
   let content = msgObj.content ?? data.output_text;
 
-  if (!content && typeof msgObj.reasoning_content === 'string' && msgObj.reasoning_content.trim()) {
-    content = msgObj.reasoning_content;
-  }
+  const reasoning =
+    typeof msgObj.reasoning === 'string' && msgObj.reasoning.trim()
+      ? msgObj.reasoning
+      : typeof msgObj.reasoning_content === 'string' && msgObj.reasoning_content.trim()
+        ? msgObj.reasoning_content
+        : '';
+  if (!content && reasoning) content = reasoning;
   if (Array.isArray(content)) {
     content = content
       .map((part) => (typeof part === 'string' ? part : part?.text || part?.content || ''))
@@ -423,6 +434,9 @@ export function candidateModels() {
   const s = store.state.settings;
   if (currentProvider() === 'poolside') {
     return [s.poolsideModel || 'poolside/laguna-s-2.1'];
+  }
+  if (currentProvider() === 'kilo') {
+    return [s.kiloModel || KILO_DEFAULT_MODEL];
   }
   if (currentProvider() === 'puter') {
     // Rantai dalam-Puter: pilihan guru → cerdas-hemat → hemat.

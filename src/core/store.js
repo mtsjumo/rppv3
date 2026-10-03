@@ -9,13 +9,15 @@
  */
 
 import { emit } from './events.js';
-import { DEFAULT_WORKER_URL, PUTER_DEFAULT_MODEL } from '../config.js';
+import { DEFAULT_WORKER_URL, KILO_DEFAULT_MODEL, PUTER_DEFAULT_MODEL } from '../config.js';
 
 const initialSettings = {
   provider: 'puter',
   apiKey: '', // alias lama (OpenRouter) — dipertahankan untuk kompatibilitas
   openRouterKey: '',
   poolsideKey: '',
+  kiloKey: '', // opsional: kosong = mode anonim (limit IP bersama)
+  kiloModel: KILO_DEFAULT_MODEL,
   puterModel: PUTER_DEFAULT_MODEL,
   model: 'nvidia/nemotron-3-super-120b-a12b:free',
   customModel: '',

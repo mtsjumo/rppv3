@@ -145,15 +145,16 @@ test('package.json valid dan punya script wajib', () => {
  * jadi setiap host yang muncul di kode = data pengguna keluar ke pihak ketiga.
  * Menambah host baru harus disengaja, bukan tidak sengaja.
  *
- * - openrouter.ai / inference.poolside.ai : endpoint AI yang dipilih pengguna
+ * - openrouter.ai / inference.poolside.ai / api.kilo.ai : endpoint AI yang dipilih pengguna
  * - latex.codecogs.com                   : render rumus LaTeX jadi gambar
  * - rpp-generator.github.io              : fallback nilai header HTTP-Referer
  * - rpp.andys-riyans.workers.dev         : worker CORS milik project ini
- *                                          (dipakai hanya bila provider=Poolside)
+ *                                          (dipakai hanya bila provider=Poolside/Kilo)
  */
 const ALLOWED_HOSTS = new Set([
   'openrouter.ai',
   'inference.poolside.ai',
+  'api.kilo.ai',
   'latex.codecogs.com',
   'rpp-generator.github.io',
   'rpp.andys-riyans.workers.dev',

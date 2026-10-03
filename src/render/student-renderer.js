@@ -42,6 +42,28 @@ function answerLines(count = 3) {
   return Array.from({ length: count }, () => `<div style="${LINE_STYLE}">${LINE}</div>`).join('');
 }
 
+/**
+ * Garis isian lentur untuk kolom sempit (kartu grid mode print): garis
+ * border selebar kolom, tidak pernah terpotong seperti deretan underscore.
+ * JANGAN dipakai untuk DOCX (konverter tidak paham border-bottom div).
+ */
+function writeLines(count = 3) {
+  return Array.from({ length: count }, () => '<div class="write-line"></div>').join('');
+}
+
+/**
+ * Awalan kalimat panduan menulis, digilir per kartu agar tidak monoton.
+ * Generik dan aman (bukan jawaban), deterministik sehingga stabil di tes.
+ */
+const GUIDE_STARTERS = [
+  'Menurut pengamatanku, … karena ….',
+  'Dari kegiatan ini aku menemukan bahwa ….',
+  'Langkah terpenting menurutku adalah … karena ….',
+];
+
+/** Checklist ringkas satu baris (tanpa kata "Jawaban:" agar lolos uji anti-bocor). */
+const GUIDE_CHECK = 'Cek: ☐ semua tugas terjawab ☐ ada bukti/gambar ☐ bisa dibaca teman';
+
 /** Kop identitas siswa yang diisi tangan. */
 function nameBlock(labelNama = 'Nama') {
   const label = (t) => `<td style="width:16%;height:30px;"><strong>${t}</strong></td>`;
@@ -231,16 +253,17 @@ function activityCard(a, i) {
     Array.isArray(a.tugas) && a.tugas.length
       ? list(a.tugas, 'ol', (t) => `<li>${text(t)}</li>`)
       : '';
+  const starter = GUIDE_STARTERS[i % GUIDE_STARTERS.length];
   return `<div class="lkpd-card">
     <div class="lkpd-card-head"><span class="lkpd-card-num">Misi ${i + 1}</span><span>${text(
       a.nama || `Aktivitas ${i + 1}`
     )}</span></div>
     <div class="lkpd-card-body">${a.deskripsi ? para(a.deskripsi) : ''}${tugas}</div>
-    <div class="lkpd-guide"><strong>Panduan menulis:</strong> pakai kalimatmu sendiri. Awali dengan:
-      <em>“Menurut pengamatanku, … karena ….”</em>
-      <div class="lkpd-check">Cek sebelum lanjut: ☐ semua tugas terjawab &nbsp; ☐ ada bukti/gambar &nbsp; ☐ kalimatku bisa dibaca teman</div>
+    <div class="lkpd-guide"><strong>Tulis dengan kalimatmu:</strong> awali dengan
+      <em>“${starter}”</em>
+      <div class="lkpd-check">${GUIDE_CHECK}</div>
     </div>
-    <div><strong>Hasil / catatan:</strong></div>${answerLines(3)}
+    <div class="lkpd-result"><strong>Hasil / catatan:</strong></div>${writeLines(3)}
   </div>`;
 }
 

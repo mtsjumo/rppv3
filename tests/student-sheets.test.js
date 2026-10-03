@@ -226,7 +226,25 @@ test('mode print: LKPD berupa kartu misi grid berpemandu', () => {
   const html = buildStudentSheetsHTML(sampleData(), INPUT, 'print');
   assert.ok(html.includes('lkpd-grid'), 'grid hilang di mode print');
   assert.ok(html.includes('Misi 1'), 'nomor misi hilang');
-  assert.ok(html.includes('Panduan menulis'), 'panduan menulis hilang');
+  assert.ok(html.includes('Tulis dengan kalimatmu'), 'panduan menulis hilang');
+  assert.ok(html.includes('write-line'), 'garis lentur hilang di kartu');
+  const grid = html.slice(html.indexOf('lkpd-grid'), html.indexOf('Tabel Perbandingan'));
+  assert.doesNotMatch(grid, /_{10,}/, 'garis underscore terpotong tidak boleh ada di kartu');
+});
+
+test('awalan panduan digilir antar kartu agar tidak monoton', () => {
+  const data = sampleData();
+  data.lampiran.lkpd.aktivitas = [
+    { nama: 'A1', tugas: ['t1'] },
+    { nama: 'A2', tugas: ['t2'] },
+    { nama: 'A3', tugas: ['t3'] },
+    { nama: 'A4', tugas: ['t4'] },
+  ];
+  const html = buildStudentSheetsHTML(data, INPUT, 'print');
+  const cards = html.split('lkpd-card-head').slice(1);
+  assert.equal(cards.length, 4);
+  const starters = cards.map((c) => c.match(/“(.+?)”/)?.[1]);
+  assert.ok(new Set(starters).size > 1, 'semua kartu memakai awalan yang sama');
 });
 
 test('mode docx: LKPD linear tanpa CSS grid', () => {

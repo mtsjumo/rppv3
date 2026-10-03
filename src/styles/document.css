@@ -150,6 +150,10 @@
   gap: 12px;
   margin: 8px 0 4px;
 }
+/* Satu-satunya kartu tampil penuh (tidak setengah halaman kosong). */
+.rpp-document .lkpd-card:only-child {
+  grid-column: 1 / -1;
+}
 .rpp-document .lkpd-card {
   border: 2px solid #333;
   border-radius: 8px;
@@ -174,6 +178,11 @@
 }
 .rpp-document .lkpd-card-body {
   padding: 8px 10px 0;
+}
+/* Garis tulis lentur: selebar kolom, untuk area sempit (kartu grid). */
+.rpp-document .write-line {
+  border-bottom: 1px solid #555;
+  height: 2em;
 }
 .rpp-document .lkpd-guide {
   margin: 8px 10px 0;

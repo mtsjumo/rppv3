@@ -238,7 +238,7 @@
 @media print {
   @page {
     margin: 15mm 20mm;
-    size: A4;
+    size: 210mm 330mm; /* F4/Folio — setelan kertas fix untuk dokumen sekolah */
   }
   body * {
     visibility: hidden;

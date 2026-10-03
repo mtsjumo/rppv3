@@ -238,6 +238,9 @@ export function friendlyError(msg) {
   if (/poolside|laguna/i.test(m) && /404|not found|model/i.test(m)) {
     return 'Model Poolside tidak ditemukan — pastikan ID "poolside/laguna-s-2.1"';
   }
+  if (/bad target/i.test(m)) {
+    return 'Worker menolak target (Bad target): worker bawaan hanya mengizinkan Poolside. Untuk Kilo, isi Worker / Proxy URL sendiri di ⚙️ Pengaturan lanjutan.';
+  }
   if (/unavailable.*free|no longer free/i.test(m)) return 'Model ini sudah tidak gratis';
   // OpenRouter sering balas `{"error":{"code":404,"message":"No endpoints found
   // for ..."}}` — dan pesan itu TIDAK selalu memuat angka 404-nya.

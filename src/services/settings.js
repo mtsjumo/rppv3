@@ -138,7 +138,15 @@ async function testKiloConnection() {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { ok: false, message: `❌ ${err.error?.message || err.message || res.statusText}` };
+      const raw = err.error?.message || err.message || err || res.statusText;
+      if (res.status === 400 && /bad target/i.test(String(raw))) {
+        return {
+          ok: false,
+          message:
+            '⛔ Worker bawaan menolak api.kilo.ai (hanya mengizinkan Poolside). Isi Worker / Proxy URL sendiri yang mengizinkan Kilo di Pengaturan lanjutan, atau pakai provider lain.',
+        };
+      }
+      return { ok: false, message: `❌ ${typeof raw === 'string' ? raw : res.statusText}` };
     }
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content ?? '';

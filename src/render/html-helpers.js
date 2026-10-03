@@ -130,7 +130,25 @@ function isSepRow(line) {
 
 /** Apakah `lines[i]` adalah header tabel Markdown (diikuti baris pemisah)? */
 function isTableStart(lines, i) {
-  return lines[i].includes('|') && i + 1 < lines.length && isSepRow(lines[i + 1]);
+  if (!lines[i].includes('|')) return false;
+  if (i + 1 < lines.length && isSepRow(lines[i + 1])) return true;
+  // AI sering menulis tabel TANPA baris pemisah `|---|---|` (terutama di
+  // tahap Memahami). Anggap tabel bila ada run 3+ baris pipa berurutan
+  // dengan jumlah sel sama (header + minimal 2 baris data).
+  return pipeRun(lines, i) >= 3;
+}
+
+/** Panjang run baris pipa berurutan dengan jumlah sel sama (baris pemisah tak memutus). */
+function pipeRun(lines, i) {
+  const first = splitRow(lines[i]);
+  if (first.length < 2) return 0;
+  let n = 1;
+  for (let j = i + 1; j < lines.length && lines[j].includes('|'); j++) {
+    if (isSepRow(lines[j])) continue;
+    if (splitRow(lines[j]).length !== first.length) break;
+    n++;
+  }
+  return n;
 }
 
 /** Teks memuat tabel Markdown? (dipakai untuk memilih render blok vs inline) */
@@ -185,12 +203,18 @@ export function richText(value) {
     const line = lines[i];
     if (isTableStart(lines, i)) {
       const headers = splitRow(line);
-      const aligns = splitRow(lines[i + 1]).map((c) => {
-        const left = c.startsWith(':');
-        const right = c.endsWith(':');
-        return left && right ? 'center' : right ? 'right' : '';
-      });
-      i += 2;
+      // Baris pemisah opsional: tanpanya, baris pertama = header, rata kiri.
+      let aligns = [];
+      if (i + 1 < lines.length && isSepRow(lines[i + 1])) {
+        aligns = splitRow(lines[i + 1]).map((c) => {
+          const left = c.startsWith(':');
+          const right = c.endsWith(':');
+          return left && right ? 'center' : right ? 'right' : '';
+        });
+        i += 2;
+      } else {
+        i += 1;
+      }
       const rows = [];
       while (
         i < lines.length &&

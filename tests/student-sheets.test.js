@@ -114,22 +114,42 @@ test('tabel perbandingan LKPD: nomor dan aspek tetap, kolom lain dikosongkan', (
   assert.ok(key.includes(aspek) && key.includes(kategoriA), 'kunci guru memuat tabel lengkap');
 });
 
-test('tabel tanpa kolom aspek dibiarkan utuh agar data yang dibutuhkan siswa tidak hilang', () => {
+test('tabel tanpa kolom aspek: hanya kolom penanda yang dipertahankan', () => {
   const data = {
     lampiran: {
       lkpd: {
         tabelPerbandingan: {
-          kolom: ['n', 'Nilai'],
+          kolom: ['No', 'Sel Hewan', 'Sel Tumbuhan'],
           data: [
-            ['1', '3'],
-            ['2', '5'],
+            ['1', 'Tidak ada dinding sel', 'Ada dinding sel'],
+            ['2', 'Bentuk tidak tetap', 'Bentuk tetap'],
           ],
         },
       },
     },
   };
   const plain = stripTags(buildStudentSheetsHTML(data, INPUT));
-  for (const v of ['3', '5']) assert.ok(plain.includes(v), `nilai ${v} tidak boleh dikosongkan`);
+  assert.ok(plain.includes('Sel Hewan'), 'header kolom harus tetap (siswa tahu yang diisi)');
+  assert.ok(plain.includes('1'), 'nomor baris harus tetap');
+  assert.ok(!plain.includes('dinding sel'), 'jawaban tabel bocor ke lembar siswa!');
+  const key = stripTags(buildAnswerKeyHTML(data, INPUT));
+  assert.ok(key.includes('dinding sel'), 'kunci guru memuat tabel lengkap');
+});
+
+test('tabel tanpa penomoran/aspek sama sekali: kolom pertama dipertahankan', () => {
+  const data = {
+    lampiran: {
+      lkpd: {
+        tabelPerbandingan: {
+          kolom: ['Ciri', 'A', 'B'],
+          data: [['Warna', 'Merah', 'Biru']],
+        },
+      },
+    },
+  };
+  const plain = stripTags(buildStudentSheetsHTML(data, INPUT));
+  assert.ok(plain.includes('Warna'), 'kolom pertama (penanda baris) harus tetap');
+  assert.ok(!plain.includes('Merah') && !plain.includes('Biru'), 'jawaban bocor!');
 });
 
 test('pertanyaan LKPD tampil tanpa jawaban dan diberi garis isian', () => {
@@ -257,4 +277,17 @@ test('mode docx: LKPD linear tanpa CSS grid', () => {
 test('kartu misi dan panduan tidak membocorkan jawaban', () => {
   const plain = stripTags(buildStudentSheetsHTML(sampleData(), INPUT, 'print'));
   assert.doesNotMatch(plain, /Jawaban\s*:/, 'teks "Jawaban:" bocor dari kartu/panduan');
+});
+
+test('kartu panjang tampil penuh dengan ruang tulis lebih banyak', () => {
+  const data = sampleData();
+  data.lampiran.lkpd.aktivitas = [
+    { nama: 'Singkat', deskripsi: 'Amati.', tugas: ['t1'] },
+    { nama: 'Panjang', deskripsi: 'x'.repeat(400), tugas: ['t1', 't2', 't3', 't4', 't5'] },
+  ];
+  const html = buildStudentSheetsHTML(data, INPUT, 'print');
+  assert.ok(html.includes('lkpd-card--wide'), 'kartu panjang harus penuh');
+  assert.equal((html.match(/lkpd-card--wide/g) || []).length, 1, 'kartu pendek jangan ikut penuh');
+  const wide = html.slice(html.indexOf('lkpd-card--wide'));
+  assert.equal((wide.match(/write-line/g) || []).length, 5, 'kartu penuh harus punya 5 garis');
 });

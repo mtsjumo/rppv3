@@ -131,24 +131,28 @@ function renderStudentDiagnostik(dg, input, first) {
 }
 
 /**
- * Tabel perbandingan versi siswa. Kolom nomor dan aspek tetap; kolom lain dikosongkan.
- * Bila tabel tidak punya kolom aspek, tabel dibiarkan utuh — mengosongkan semuanya akan
- * membuang data yang justru dibutuhkan siswa untuk mengerjakan.
+ * Tabel perbandingan versi siswa. Kolom penomoran (No/nomor/n/#) dan kolom
+ * aspek dipertahankan; SEMUA kolom lain dikosongkan untuk diisi siswa.
+ * Bila tidak ada kolom penomoran/aspek sama sekali, kolom pertama dianggap
+ * penanda baris dan dipertahankan — sisanya tetap dikosongkan. Membiarkan
+ * tabel utuh berarti membocorkan jawaban (bug nyata), jadi tidak ada lagi
+ * fallback "biarkan utuh".
  */
 function studentComparisonTable(tabel) {
   if (!tabel?.data?.length) return '';
   const cols = tabel.kolom?.length ? tabel.kolom : deriveColumns(tabel.data);
-  const isKept = cols.map((c) => /^(no|nomor)$/.test(norm(c)) || norm(c).includes('aspek'));
-  const hasAspect = cols.some((c) => norm(c).includes('aspek'));
+  const keepable = cols.map(
+    (c) => /^(no|nomor|n|#)$/.test(norm(c)) || norm(c).includes('aspek')
+  );
+  const anyKeep = keepable.some(Boolean);
+  const isKept = keepable.map((k, j) => k || (!anyKeep && j === 0));
 
   const head = cols.map((c) => `<th>${text(c)}</th>`).join('');
   const body = tabel.data
     .map((row, ri) => {
       const cells = rowCells(row, cols, ri);
       const tds = cols
-        .map((_, j) =>
-          !hasAspect || isKept[j] ? `<td>${text(cells[j])}</td>` : '<td style="height:48px;"></td>'
-        )
+        .map((_, j) => (isKept[j] ? `<td>${text(cells[j])}</td>` : '<td style="height:48px;"></td>'))
         .join('');
       return `<tr>${tds}</tr>`;
     })
@@ -254,7 +258,13 @@ function activityCard(a, i) {
       ? list(a.tugas, 'ol', (t) => `<li>${text(t)}</li>`)
       : '';
   const starter = GUIDE_STARTERS[i % GUIDE_STARTERS.length];
-  return `<div class="lkpd-card">
+  // Kartu panjang (banyak teks/tugas) tampil penuh agar ruang mengerjakan cukup;
+  // kartu pendek boleh bersebelahan. Grid tidak selalu dua kolom.
+  const bulk = [a.nama, a.deskripsi, ...(Array.isArray(a.tugas) ? a.tugas : [])]
+    .map((x) => String(x ?? ''))
+    .join(' ');
+  const wide = bulk.length > 280 || (Array.isArray(a.tugas) && a.tugas.length > 4);
+  return `<div class="lkpd-card${wide ? ' lkpd-card--wide' : ''}">
     <div class="lkpd-card-head"><span class="lkpd-card-num">Misi ${i + 1}</span><span>${text(
       a.nama || `Aktivitas ${i + 1}`
     )}</span></div>
@@ -263,7 +273,7 @@ function activityCard(a, i) {
       <em>“${starter}”</em>
       <div class="lkpd-check">${GUIDE_CHECK}</div>
     </div>
-    <div class="lkpd-result"><strong>Hasil / catatan:</strong></div>${writeLines(3)}
+    <div class="lkpd-result"><strong>Hasil / catatan:</strong></div>${writeLines(wide ? 5 : 3)}
   </div>`;
 }
 

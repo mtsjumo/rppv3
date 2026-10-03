@@ -161,6 +161,15 @@
 .rpp-document .lkpd-card--wide {
   grid-column: 1 / -1;
 }
+/* Kepala LKPD: kop nama + identitas bersebelahan (print & layar).
+   Pendek sehingga aman dari fragmentasi cetak. */
+.rpp-document .lkpd-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 8px 0;
+  break-inside: avoid;
+}
 .rpp-document .lkpd-card {
   border: 2px solid #333;
   border-radius: 8px;

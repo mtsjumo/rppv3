@@ -86,10 +86,11 @@ function contextLine(input) {
 }
 
 /** Judul lembar + konteks + kop nama. Lembar pertama tidak diberi page-break. */
-function sheetHeader(title, input, { first = false, nama = 'Nama' } = {}) {
+function sheetHeader(title, input, { first = false, nama = 'Nama', kop = true } = {}) {
   const cls = first ? 'doc-title' : 'doc-title page-break';
   const pad = first ? '' : ' style="padding-top:40px;"';
-  return `<div class="${cls}"${pad}>${escapeHtml(title)}</div>${contextLine(input)}${nameBlock(nama)}`;
+  const kopHtml = kop ? nameBlock(nama) : '';
+  return `<div class="${cls}"${pad}>${escapeHtml(title)}</div>${contextLine(input)}${kopHtml}`;
 }
 
 const petunjuk = (teks) =>
@@ -172,9 +173,15 @@ function studentQuestions(pertanyaan) {
 function renderStudentLKPD(lkpd, input, first, mode = 'print') {
   if (!lkpd) return '';
   const idn = lkpd.identitas || {};
-  let html = sheetHeader('LEMBAR KERJA PESERTA DIDIK (LKPD)', input, { first, nama: 'Nama / Kelompok' });
+  // Kop dirender terpisah (bukan di sheetHeader) agar bisa sejajar identitas.
+  let html = sheetHeader('LEMBAR KERJA PESERTA DIDIK (LKPD)', input, {
+    first,
+    nama: 'Nama / Kelompok',
+    kop: false,
+  });
 
-  html += kvTable(
+  const kopNama = nameBlock('Nama / Kelompok');
+  const identitas = kvTable(
     [
       ['Mata Pelajaran', text(idn.mataPelajaran || input.mapel)],
       ['Kelas/Semester', text(idn.kelasSemester || input.fase)],
@@ -183,6 +190,14 @@ function renderStudentLKPD(lkpd, input, first, mode = 'print') {
     ],
     180
   );
+
+  if (mode === 'docx') {
+    // DOCX: susun vertikal linear (konverter tidak paham CSS grid).
+    html += kopNama + identitas;
+  } else {
+    // Print: kop + identitas bersebelahan agar ngeblend dengan kartu grid.
+    html += `<div class="lkpd-top"><div>${kopNama}</div><div>${identitas}</div></div>`;
+  }
 
   html += sparkBox(lkpd, input.materi);
 

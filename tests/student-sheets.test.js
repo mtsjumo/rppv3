@@ -275,6 +275,22 @@ test('awalan panduan digilir antar kartu agar tidak monoton', () => {
   assert.ok(new Set(starters).size > 1, 'semua kartu memakai awalan yang sama');
 });
 
+test('mode print: kepala LKPD grid kop + identitas, tanpa duplikat kop', () => {
+  const html = buildStudentSheetsHTML(sampleData(), INPUT, 'print');
+  assert.ok(html.includes('lkpd-top'), 'grid kepala hilang di mode print');
+  assert.equal(
+    (html.match(/Nama \/ Kelompok/g) || []).length,
+    1,
+    'kop nama harus tepat satu (tidak duplikat)'
+  );
+});
+
+test('mode docx: kepala LKPD vertikal tanpa grid', () => {
+  const html = buildStudentSheetsHTML(sampleData(), INPUT, 'docx');
+  assert.doesNotMatch(html, /lkpd-top|lkpd-grid|lkpd-card/, 'class grid bocor ke DOCX');
+  assert.ok(html.includes('Nama / Kelompok'), 'kop hilang di mode docx');
+});
+
 test('mode docx: LKPD linear tanpa CSS grid', () => {
   const html = buildStudentSheetsHTML(sampleData(), INPUT, 'docx');
   assert.doesNotMatch(html, /lkpd-grid|lkpd-card/, 'class grid bocor ke DOCX');

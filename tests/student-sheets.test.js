@@ -195,3 +195,48 @@ test('nama file lampiran siswa dan kunci berbeda satu sama lain dan dari RPP', (
   assert.match(names[1], /^LampiranSiswa-Matematika-D-VIII-1-Andi-Ariyanto-/);
   assert.match(names[2], /^KunciJawaban-/);
 });
+
+// ---------------------------------------------------------------------------
+// LKPD mode print (grid) vs mode docx (linear) + Momen Spark
+// ---------------------------------------------------------------------------
+
+test('spark dari AI dirender dan di-escape', () => {
+  const data = sampleData();
+  data.lampiran.lkpd.spark = 'Fakta <mengejutkan> & "seru"';
+  const html = buildStudentSheetsHTML(data, INPUT);
+  assert.ok(html.includes('Momen Spark'), 'kotak spark hilang');
+  assert.ok(!html.includes('<mengejutkan>'), 'HTML spark tidak di-escape');
+  assert.ok(html.includes('&lt;mengejutkan&gt;'), 'escape spark salah');
+});
+
+test('spark kosong memakai fallback statis (deterministik)', () => {
+  const data = sampleData();
+  delete data.lampiran.lkpd.spark;
+  const a = stripTags(buildStudentSheetsHTML(data, INPUT));
+  const b = stripTags(buildStudentSheetsHTML(data, INPUT));
+  assert.ok(a.includes('Momen Spark'), 'fallback spark hilang');
+  assert.equal(
+    a.match(/Momen Spark:(.+?)Tujuan Pembelajaran/)?.[1]?.trim(),
+    b.match(/Momen Spark:(.+?)Tujuan Pembelajaran/)?.[1]?.trim(),
+    'fallback harus deterministik'
+  );
+});
+
+test('mode print: LKPD berupa kartu misi grid berpemandu', () => {
+  const html = buildStudentSheetsHTML(sampleData(), INPUT, 'print');
+  assert.ok(html.includes('lkpd-grid'), 'grid hilang di mode print');
+  assert.ok(html.includes('Misi 1'), 'nomor misi hilang');
+  assert.ok(html.includes('Panduan menulis'), 'panduan menulis hilang');
+});
+
+test('mode docx: LKPD linear tanpa CSS grid', () => {
+  const html = buildStudentSheetsHTML(sampleData(), INPUT, 'docx');
+  assert.doesNotMatch(html, /lkpd-grid|lkpd-card/, 'class grid bocor ke DOCX');
+  assert.ok(html.includes('Hasil / catatan'), 'isi linear hilang di mode docx');
+  assert.ok(html.includes('Momen Spark'), 'spark harus tetap ada di DOCX');
+});
+
+test('kartu misi dan panduan tidak membocorkan jawaban', () => {
+  const plain = stripTags(buildStudentSheetsHTML(sampleData(), INPUT, 'print'));
+  assert.doesNotMatch(plain, /Jawaban\s*:/, 'teks "Jawaban:" bocor dari kartu/panduan');
+});

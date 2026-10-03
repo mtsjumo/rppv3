@@ -143,7 +143,7 @@ function studentQuestions(pertanyaan) {
   return `<ol>${items.map((q) => `<li>${text(q)}${answerLines(3)}</li>`).join('')}</ol>`;
 }
 
-function renderStudentLKPD(lkpd, input, first) {
+function renderStudentLKPD(lkpd, input, first, mode = 'print') {
   if (!lkpd) return '';
   const idn = lkpd.identitas || {};
   let html = sheetHeader('LEMBAR KERJA PESERTA DIDIK (LKPD)', input, { first, nama: 'Nama / Kelompok' });
@@ -158,6 +158,8 @@ function renderStudentLKPD(lkpd, input, first) {
     180
   );
 
+  html += sparkBox(lkpd, input.materi);
+
   if (lkpd.tujuan?.length) {
     html += `<div class="sub-header">Tujuan Pembelajaran</div>${list(
       lkpd.tujuan,
@@ -166,12 +168,10 @@ function renderStudentLKPD(lkpd, input, first) {
     )}`;
   }
 
-  for (const a of lkpd.aktivitas || []) {
-    html += `<div class="sub-header">${escapeHtml(a.nama || '')}</div>`;
-    if (a.deskripsi) html += para(a.deskripsi);
-    if (a.tugas?.length) html += list(a.tugas, 'ol', (i) => `<li>${text(i)}</li>`);
-    html += `<p style="margin:8px 0 0;"><strong>Hasil / catatan:</strong></p>${answerLines(4)}`;
-  }
+  // Mode DOCX: layout linear patuh (konverter DOCX tidak paham CSS grid).
+  // Mode print: kartu misi grid yang hidup.
+  if (mode === 'docx') html += renderLKPDActivitiesLinear(lkpd);
+  else html += renderLKPDActivitiesGrid(lkpd);
 
   if (lkpd.tabelPerbandingan?.data?.length) {
     const judul = lkpd.tabelPerbandingan.judul || `Tabel Perbandingan — ${input.materi || ''}`;
@@ -185,6 +185,70 @@ function renderStudentLKPD(lkpd, input, first) {
     if (questions) html += `<div class="sub-header">Pertanyaan Pemahaman</div>${questions}`;
   }
   return html;
+}
+
+/** Isi aktivitas versi linear (DOCX-safe): dipakai untuk mode 'docx'. */
+function renderLKPDActivitiesLinear(lkpd) {
+  let html = '';
+  for (const a of lkpd.aktivitas || []) {
+    html += `<div class="sub-header">${escapeHtml(a.nama || '')}</div>`;
+    if (a.deskripsi) html += para(a.deskripsi);
+    if (a.tugas?.length) html += list(a.tugas, 'ol', (i) => `<li>${text(i)}</li>`);
+    html += `<p style="margin:8px 0 0;"><strong>Hasil / catatan:</strong></p>${answerLines(4)}`;
+  }
+  return html;
+}
+
+/**
+ * Template statis "Momen Spark" — cadangan gratis bila AI tidak memberi spark.
+ * Generik dan terbimbing (nol token, deterministik sehingga stabil di tes).
+ */
+const SPARK_FALLBACKS = [
+  'Sebelum mulai, tulis satu hal tentang materi ini yang ingin kamu buktikan sendiri hari ini.',
+  'Tebak dulu jawabannya sebelum mengerjakan — benar atau salah, tuliskan alasanmu.',
+  'Perhatikan baik-baik: satu detail kecil dalam kegiatan ini bisa mengubah seluruh kesimpulan.',
+  'Setelah selesai, jelaskan kembali hasilnya dengan bahasamu sendiri dalam dua kalimat.',
+  'Diskusikan dengan teman sebangkumu: apakah kalian sampai pada kesimpulan yang sama? Mengapa?',
+];
+
+/** Spark dari AI bila ada; sonst fallback statis deterministik berdasar materi. */
+function sparkFor(lkpd, materi) {
+  const ai = String(lkpd?.spark ?? '').trim();
+  if (ai) return ai;
+  const key = String(materi ?? '');
+  return SPARK_FALLBACKS[key.length % SPARK_FALLBACKS.length];
+}
+
+function sparkBox(lkpd, materi) {
+  return `<div class="spark-box"><strong>⚡ Momen Spark:</strong> ${escapeHtml(
+    sparkFor(lkpd, materi)
+  )}</div>`;
+}
+
+/** Satu kartu misi: nama + deskripsi + tugas + panduan menulis + ruang hasil. */
+function activityCard(a, i) {
+  const tugas =
+    Array.isArray(a.tugas) && a.tugas.length
+      ? list(a.tugas, 'ol', (t) => `<li>${text(t)}</li>`)
+      : '';
+  return `<div class="lkpd-card">
+    <div class="lkpd-card-head"><span class="lkpd-card-num">Misi ${i + 1}</span><span>${text(
+      a.nama || `Aktivitas ${i + 1}`
+    )}</span></div>
+    <div class="lkpd-card-body">${a.deskripsi ? para(a.deskripsi) : ''}${tugas}</div>
+    <div class="lkpd-guide"><strong>Panduan menulis:</strong> pakai kalimatmu sendiri. Awali dengan:
+      <em>“Menurut pengamatanku, … karena ….”</em>
+      <div class="lkpd-check">Cek sebelum lanjut: ☐ semua tugas terjawab &nbsp; ☐ ada bukti/gambar &nbsp; ☐ kalimatku bisa dibaca teman</div>
+    </div>
+    <div><strong>Hasil / catatan:</strong></div>${answerLines(3)}
+  </div>`;
+}
+
+/** Isi aktivitas versi grid (mode print/PDF). Kartu tidak dipecah antar halaman. */
+function renderLKPDActivitiesGrid(lkpd) {
+  const list_ = lkpd.aktivitas || [];
+  if (!list_.length) return '';
+  return `<div class="lkpd-grid">${list_.map((a, i) => activityCard(a, i)).join('')}</div>`;
 }
 
 function renderStudentEvaluasi(ev, input, first) {
@@ -202,9 +266,10 @@ function renderStudentEvaluasi(ev, input, first) {
  * Lembar siswa: tes diagnostik, LKPD, dan soal evaluasi (masing-masing di halaman baru).
  * @param {object} phase1 `{ rpp, lampiran }`
  * @param {object} [input]
+ * @param {string} [mode] 'print' (LKPD grid cantik) atau 'docx' (LKPD linear patuh)
  * @returns {string} HTML tanpa pembungkus; '' bila tidak ada lampiran sama sekali
  */
-export function buildStudentSheetsHTML(phase1, input = store.state.input) {
+export function buildStudentSheetsHTML(phase1, input = store.state.input, mode = 'print') {
   const lamp = phase1?.lampiran || {};
   const sheets = [];
   const add = (render, data) => {
@@ -212,7 +277,7 @@ export function buildStudentSheetsHTML(phase1, input = store.state.input) {
     if (html) sheets.push(html);
   };
   add(renderStudentDiagnostik, lamp.diagnostik);
-  add(renderStudentLKPD, lamp.lkpd);
+  add((d, inp, fst) => renderStudentLKPD(d, inp, fst, mode), lamp.lkpd);
   add(renderStudentEvaluasi, lamp.evaluasi);
   return sheets.join('');
 }

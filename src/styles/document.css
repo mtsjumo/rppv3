@@ -135,6 +135,57 @@
   page-break-before: always;
 }
 
+/* ----- LKPD siswa mode print: kartu misi grid + kotak spark -----
+   Ramah printer B&W: mengandalkan border/nomor, bukan warna. */
+.rpp-document .spark-box {
+  border: 2px dashed #333;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 10px 0 14px;
+  background: #f7f7f7;
+}
+.rpp-document .lkpd-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.rpp-document .lkpd-card {
+  border: 2px solid #333;
+  border-radius: 8px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  overflow: hidden;
+}
+.rpp-document .lkpd-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  border-bottom: 2px solid #333;
+  padding: 6px 10px;
+  background: #eee;
+}
+.rpp-document .lkpd-card-num {
+  border: 2px solid #333;
+  border-radius: 999px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+.rpp-document .lkpd-card-body {
+  padding: 8px 10px 0;
+}
+.rpp-document .lkpd-guide {
+  margin: 8px 10px 0;
+  padding: 6px 10px;
+  border-left: 4px solid #333;
+  background: #f7f7f7;
+  font-size: 0.85em;
+}
+.rpp-document .lkpd-check {
+  margin-top: 4px;
+}
+
 /* ----- Responsif preview ----- */
 @media (max-width: 768px) {
   .rpp-document {

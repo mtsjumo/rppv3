@@ -17,23 +17,25 @@ import { printHTML } from './pdf.js';
 
 const KINDS = {
   siswa: {
-    build: buildStudentSheetsHTML,
     empty: 'Belum ada lampiran (diagnostik, LKPD, atau evaluasi) untuk dicetak.',
   },
   kunci: {
-    build: buildAnswerKeyHTML,
     empty: 'Belum ada kunci jawaban untuk dibuat.',
   },
 };
 
 /** HTML untuk jenis tertentu, atau null (dengan toast) bila belum ada datanya. */
-function prepare(kind) {
+function prepare(kind, mode = 'print') {
   const phase1 = store.state.phase1;
   if (!phase1) {
     showToast('Generate RPP (Phase 1) terlebih dahulu.', 'warning');
     return null;
   }
-  const html = KINDS[kind].build(phase1, store.state.input);
+  // Mode 'docx': LKPD dirender linear patuh (konverter DOCX tidak paham CSS grid).
+  const html =
+    kind === 'siswa'
+      ? buildStudentSheetsHTML(phase1, store.state.input, mode)
+      : buildAnswerKeyHTML(phase1, store.state.input);
   if (!html) {
     showToast(KINDS[kind].empty, 'warning');
     return null;
@@ -42,14 +44,14 @@ function prepare(kind) {
 }
 
 function printKind(kind) {
-  const html = prepare(kind);
+  const html = prepare(kind, 'print');
   if (!html) return;
   showToast('Buka dialog Print, lalu pilih "Save as PDF" atau printer.', 'info');
   printHTML(html, buildExportBase(kind, store.state.input));
 }
 
 async function docxKind(kind) {
-  const html = prepare(kind);
+  const html = prepare(kind, 'docx');
   if (!html) return;
   try {
     const filename = buildExportFilename(kind, 'docx', store.state.input);

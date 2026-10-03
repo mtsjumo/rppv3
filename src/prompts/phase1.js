@@ -127,13 +127,14 @@ Output HANYA JSON dengan struktur berikut:
     "tujuan": ["Tujuan LKPD"],
     "aktivitas": [{ "nama": "Aktivitas 1: sesuai materi", "deskripsi": "deskripsi aktivitas", "tugas": ["tugas 1", "tugas 2"] }, { "nama": "Aktivitas 2: Perbandingan/Penerapan", "deskripsi": "deskripsi aktivitas", "tugas": [] }],
     "tabelPerbandingan": { "kolom": ["No", "nama kolom sesuai materi", "..."], "data": [["1", "nilai kolom 1", "nilai kolom 2", "..."]] },
-    "pertanyaan": [{ "nomor": 1, "pertanyaan": "", "jawaban": "" }]
+    "pertanyaan": [{ "nomor": 1, "pertanyaan": "", "jawaban": "" }],
+    "spark": "satu kalimat pemantik rasa ingin tahu terkait materi (tanpa memberi jawaban)"
   }
 }
 
 PENTING soal "tabelPerbandingan": setiap baris di "data" adalah ARRAY OF STRING (BUKAN object), urutannya HARUS sama persis dengan urutan "kolom". Jumlah kolom bebas menyesuaikan materi (tidak harus 5), minimal 5 baris data yang benar-benar relevan dengan ${input.materi}.
 
-MUTU LKPD: tiap aktivitas memuat bahan/alat (bila ada), langkah kerja yang bisa langsung dikerjakan, dan hasil yang harus ditulis/digambar peserta didik. Bila aktivitas butuh tabel pengamatan atau tabel isian, tulis sebagai tabel Markdown di dalam "deskripsi" dengan kolom yang jelas. Pertanyaan pemahaman menuntut penalaran (mengapa/bagaimana/apa akibatnya), bukan sekadar menyebutkan definisi, dan "jawaban" memuat kunci yang benar-benar bisa dipakai guru.`;
+MUTU LKPD: tiap aktivitas memuat bahan/alat (bila ada), langkah kerja yang bisa langsung dikerjakan, dan hasil yang harus ditulis/digambar peserta didik. Bila aktivitas butuh tabel pengamatan atau tabel isian, tulis sebagai tabel Markdown di dalam "deskripsi" dengan kolom yang jelas. Pertanyaan pemahaman menuntut penalaran (mengapa/bagaimana/apa akibatnya), bukan sekadar menyebutkan definisi, dan "jawaban" memuat kunci yang benar-benar bisa dipakai guru. Kolom "spark": satu kalimat "momen spark" — fakta mengejutkan atau pertanyaan menantang terkait materi, maksimal 140 karakter, tanpa memberi jawaban; boleh string kosong bila tidak ada yang cocok.`;
 
   const userPrompt = `Buat LKPD untuk materi ${input.materi}.
 ${identityBlock(input)}

@@ -394,6 +394,23 @@ function cellsFromArray(row, headers) {
 const isNumberColumn = (header) => ['no', 'nomor'].includes(normalizeKey(header));
 
 /**
+ * Sel-sel satu baris data sesuai urutan kolom (baris array maupun object).
+ * Kolom nomor yang kosong diisi nomor urut.
+ * @param {*} row
+ * @param {string[]} cols
+ * @param {number} [rowIdx]
+ * @returns {string[]}
+ */
+export function rowCells(row, cols, rowIdx = 0) {
+  let cells;
+  if (Array.isArray(row)) cells = cellsFromArray(row, cols);
+  else if (row && typeof row === 'object') cells = cellsFromObject(row, cols);
+  else cells = cols.map((_, i) => (i === 0 ? row : ''));
+  if (isNumberColumn(cols[0]) && !hasValue(cells[0])) cells[0] = String(rowIdx + 1);
+  return cells;
+}
+
+/**
  * Tentukan kolom dari data bila AI tidak menyediakan `kolom`.
  * @param {Array} rows
  * @returns {string[]}
@@ -420,11 +437,7 @@ export function table(headers, rows, { className = '' } = {}) {
   const head = cols.map((h) => `<th>${text(h)}</th>`).join('');
   const body = rows
     .map((row, rowIdx) => {
-      let cells;
-      if (Array.isArray(row)) cells = cellsFromArray(row, cols);
-      else if (row && typeof row === 'object') cells = cellsFromObject(row, cols);
-      else cells = cols.map((_, i) => (i === 0 ? row : ''));
-      if (isNumberColumn(cols[0]) && !hasValue(cells[0])) cells[0] = String(rowIdx + 1);
+      const cells = rowCells(row, cols, rowIdx);
       return `<tr>${cells.map((c) => `<td>${text(c)}</td>`).join('')}</tr>`;
     })
     .join('');

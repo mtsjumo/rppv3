@@ -59,6 +59,12 @@ import {
   exportCombinedHTMLSafe,
   exportCombinedPDF,
 } from './export/combined.js';
+import {
+  exportAnswerKeyDOCX,
+  exportStudentSheetsDOCX,
+  printAnswerKey,
+  printStudentSheets,
+} from './export/student.js';
 
 // ---------------------------------------------------------------------------
 // Delegasi aksi
@@ -84,6 +90,10 @@ const ACTIONS = {
   'export-phase1-pdf': () => exportPhase1PDF(),
   'export-phase1-docx': () => exportPhase1DOCX(),
   'export-phase1-html': () => exportPhase1HTML(),
+  'print-student-sheets': () => printStudentSheets(),
+  'export-student-docx': () => exportStudentSheetsDOCX(),
+  'print-answer-key': () => printAnswerKey(),
+  'export-answer-key-docx': () => exportAnswerKeyDOCX(),
   'export-phase2-pdf': () => exportPhase2PDF(),
   'export-phase2-docx': () => exportPhase2DOCX(),
   'export-phase2-html': () => exportPhase2HTML(),

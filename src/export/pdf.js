@@ -66,6 +66,31 @@ export function printCombined(phases, fileBase) {
   return true;
 }
 
+/**
+ * Cetak HTML yang dibangun kode (bukan elemen yang sudah ada di halaman), mis. lembar siswa.
+ * @param {string} html isi dokumen tanpa pembungkus `.rpp-document`
+ * @param {string} [fileBase] nama dasar file untuk dialog "Save as PDF"
+ * @returns {boolean} false bila html kosong
+ */
+export function printHTML(html, fileBase) {
+  if (!html) return false;
+  const temp = document.createElement('div');
+  temp.className = 'print-area';
+  temp.style.cssText = 'position:absolute;left:0;top:0;width:100%;z-index:9999;background:#fff;';
+  const doc = document.createElement('div');
+  doc.className = 'rpp-document';
+  doc.innerHTML = html;
+  temp.appendChild(doc);
+
+  document.body.appendChild(temp);
+  activePrintArea = temp;
+  runPrint(() => {
+    if (temp.parentNode) temp.parentNode.removeChild(temp);
+    activePrintArea = null;
+  }, fileBase);
+  return true;
+}
+
 function runPrint(cleanup, fileBase) {
   // Browser memakai judul halaman sebagai nama file default di dialog "Save as PDF".
   const originalTitle = document.title;

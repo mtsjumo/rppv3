@@ -24,6 +24,8 @@ const PREFIX = {
   modul: 'ModulAjar',
   media: 'MediaPembelajaran',
   lengkap: 'RPP-Lengkap',
+  siswa: 'LampiranSiswa',
+  kunci: 'KunciJawaban',
 };
 
 /** Bagian nama yang dipakai, berurutan. */
@@ -85,7 +87,7 @@ const EXTRACTORS = {
  * Nama dasar (tanpa ekstensi). Bagian yang kosong dilewati tanpa meninggalkan
  * tanda hubung ganda.
  *
- * @param {'rpp'|'modul'|'media'|'lengkap'} kind
+ * @param {'rpp'|'modul'|'media'|'lengkap'|'siswa'|'kunci'} kind
  * @param {object} [input] isi form (mapel, fase, guru, materi)
  * @returns {string}
  */

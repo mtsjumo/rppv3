@@ -3,6 +3,47 @@
 > Dibuat oleh Opencode. Bacalah file ini sebelum melanjutkan pekerjaan yang
 > tertunda (limit). Tujuannya: tidak ada perang kode antara pekerjaanmu dan
 > pekerjaan Opencode.
+>
+> UPDATE: catatan ini dimutakhirkan setelah 10 commit tambahan (lihat
+> "Perubahan setelah catatan awal"). Teks paste-chat yang lama SUDAH
+> kedaluwarsa — pakai versi baru di bawah.
+
+## Perubahan setelah catatan awal (Opencode, sudah commit, belum tentu push)
+
+```
+258d80b  Kepala LKPD grid kop+identitas (print), vertikal di DOCX
+b10d770  Kilo kembali via worker (allowlist api.kilo.ai terverifikasi)
+667532e  Kilo direct tanpa worker (keputusan eksplisit, sudah dibalik lagi)
+34c82ee  Pesan jelas saat worker menolak Kilo (Bad target)
+1f07ea8  Provider ke-4 Kilo (tanpa key + key resmi opsional, via worker)
+8731d0c  Tabel Markdown tanpa baris pemisah tetap dirender (kasus Memahami)
+2c67f1f  Cetak LKPD 1 kolom + header menempel + spark anti-bocor jawaban
+5a99808  Kunci kertas cetak ke F4 (210x330mm)
+b5e7113  Perbaiki LKPD: tabel selalu kosongkan jawaban + kartu adaptif
+f59612d  Perbaiki kartu LKPD: garis lentur + panduan digilir
+```
+
+Yang wajib kamu ketahui dari daftar itu:
+
+1. **`html-helpers.js` disentuh Opencode** (commit `8731d0c`): deteksi tabel
+   Markdown toleran — tabel TANPA baris pemisah `|---|---|` tetap dirender
+   bila 3+ baris pipa konsisten (kasus tabel tahap Memahami). Kalau idemu
+   menyentuh deteksi tabel, rebase ke versi ini dulu.
+2. **Aturan tabel siswa diperketat** (commit `b5e7113`): kolom non-penomoran/
+   non-aspek SELALU dikosongkan (bug nyata: jawaban bocor karena data AI
+   tidak pakai nama kolom "aspek"). Fallback lama "biarkan utuh" dihapus.
+3. **Cetak LKPD = 1 kolom** (commit `2c67f1f`): grid 2 kolom tidak
+   terfragmentasi andal di print Chrome (halaman kosong). Layar tetap grid.
+   `sub-header`/`section-header` + `thead` anti-yatim. Kertas dikunci F4.
+4. **Spark anti-bocor** (commit `2c67f1f`): pola `Jawabnya... ada/adalah/...`
+   dan spark >220 char otomatis dibuang ke fallback (kasus nyata dari
+   screenshot user). Prompt diperkeras dengan contoh terlarang.
+5. **Provider ke-4 Kilo** (commit `1f07ea8` + lanjutan): menyentuh
+   `config.js`, `store.js`, `ai-provider.js`, `settings.js`,
+   `settings-panel.js`, `index.html`, `hygiene.test.js` (allowlist host).
+   Kalau kamu berencana menyentuh file settings/panel, koordinasi dulu.
+6. Suite sekarang **219+ tes, semua hijau**. Jangan
+   push bila ada yang merah.
 
 ## Keputusan user (opsi B)
 

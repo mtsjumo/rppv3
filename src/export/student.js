@@ -6,11 +6,12 @@
  * siswa tanpa ikut mencetak seluruh RPP, dan kunci jawaban tidak ikut terbagikan.
  */
 
-import { saveAs } from '../core/dom.js';
+import { copyText, saveAs } from '../core/dom.js';
 import { store } from '../core/store.js';
 import { friendlyError } from '../services/json.js';
 import { showToast } from '../ui/toast.js';
 import { buildAnswerKeyHTML, buildStudentSheetsHTML } from '../render/student-renderer.js';
+import { buildLKPDPrompt } from './lkpd-prompt.js';
 import { htmlToDocx } from './docx.js';
 import { buildExportBase, buildExportFilename } from './filename.js';
 import { printHTML } from './pdf.js';
@@ -70,3 +71,26 @@ export const exportStudentSheetsDOCX = () => docxKind('siswa');
 export const printAnswerKey = () => printKind('kunci');
 /** Unduh kunci jawaban sebagai DOCX. */
 export const exportAnswerKeyDOCX = () => docxKind('kunci');
+
+/**
+ * Salin prompt desain LKPD (terisi data LKPD saat itu) ke clipboard.
+ * Merangkai string murni lokal: NOL token, NOL request. Prompt TIDAK memuat
+ * kunci/jawaban — aman ditempel ke AI chat mana pun.
+ */
+export async function copyLKPDPrompt() {
+  const phase1 = store.state.phase1;
+  if (!phase1?.lampiran?.lkpd) {
+    showToast('Generate RPP (Phase 1) terlebih dahulu.', 'warning');
+    return;
+  }
+  const prompt = buildLKPDPrompt(phase1, store.state.input);
+  if (!prompt) {
+    showToast('Tidak ada LKPD untuk dibuatkan prompt.', 'warning');
+    return;
+  }
+  if (await copyText(prompt)) {
+    showToast('Prompt tersalin! Tempel ke AI chat mana pun untuk LKPD yang lebih cantik.', 'success');
+  } else {
+    showToast('Gagal menyalin otomatis — browser memblokir clipboard.', 'error');
+  }
+}

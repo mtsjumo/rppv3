@@ -60,6 +60,7 @@ import {
   exportCombinedPDF,
 } from './export/combined.js';
 import {
+  copyLKPDPrompt,
   exportAnswerKeyDOCX,
   exportStudentSheetsDOCX,
   printAnswerKey,
@@ -92,6 +93,7 @@ const ACTIONS = {
   'export-phase1-html': () => exportPhase1HTML(),
   'print-student-sheets': () => printStudentSheets(),
   'export-student-docx': () => exportStudentSheetsDOCX(),
+  'copy-lkpd-prompt': () => copyLKPDPrompt(),
   'print-answer-key': () => printAnswerKey(),
   'export-answer-key-docx': () => exportAnswerKeyDOCX(),
   'export-phase2-pdf': () => exportPhase2PDF(),

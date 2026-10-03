@@ -108,7 +108,6 @@ export function collectStylesheetText() {
     })
     .join('\n');
 }
-
 /** Unduh blob sebagai file. */
 export function saveAs(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -139,4 +138,34 @@ export function debounce(fn, waitMs = 300) {
     timer = null;
   };
   return debounced;
+}
+
+/**
+ * Salin teks ke clipboard. Clipboard API butuh konteks aman (https/localhost);
+ * fallback textarea+execCommand untuk file:// dan browser lama.
+ * @returns {Promise<boolean>} true bila berhasil
+ */
+export async function copyText(text) {
+  const value = String(text ?? '');
+  if (!value) return false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch {
+    /* lanjut ke fallback */
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = value;
+    ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return !!ok;
+  } catch {
+    return false;
+  }
 }

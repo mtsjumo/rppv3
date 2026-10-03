@@ -259,6 +259,23 @@
   .no-print {
     display: none !important;
   }
+  /* LKPD di kertas: selalu satu kolom. Grid 2 kolom tidak terfragmentasi
+     dengan andal di mode cetak (dorong beramai-ramai → halaman kosong).
+     Layar tetap grid; yang dicetak yang rapi. */
+  .rpp-document .lkpd-grid {
+    display: block;
+  }
+  .rpp-document .lkpd-card {
+    margin-bottom: 12px;
+  }
+  /* Judul seksi menempel pada isi di bawahnya (tidak yatim di ujung halaman). */
+  .rpp-document .sub-header,
+  .rpp-document .section-header {
+    break-after: avoid;
+  }
+  .rpp-document thead {
+    break-inside: avoid;
+  }
   .rpp-document .section-header,
   .rpp-document .sub-header,
   .rpp-document th {

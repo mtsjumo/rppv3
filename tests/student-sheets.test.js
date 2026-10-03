@@ -242,6 +242,14 @@ test('spark kosong memakai fallback statis (deterministik)', () => {
   );
 });
 
+test('spark AI yang membocorkan jawaban diganti fallback', () => {
+  const data = sampleData();
+  data.lampiran.lkpd.spark = "Tahu tak kenapa daun kelopak bisa tumbuh? Jawabnya ada pada dinding sel dan vakuol!";
+  const plain = stripTags(buildStudentSheetsHTML(data, INPUT));
+  assert.ok(!plain.includes('dinding sel dan vakuol'), 'spark bocor tidak dibuang!');
+  assert.ok(plain.includes('Momen Spark'), 'fallback pengganti harus tampil');
+});
+
 test('mode print: LKPD berupa kartu misi grid berpemandu', () => {
   const html = buildStudentSheetsHTML(sampleData(), INPUT, 'print');
   assert.ok(html.includes('lkpd-grid'), 'grid hilang di mode print');

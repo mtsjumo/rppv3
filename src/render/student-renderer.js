@@ -237,10 +237,14 @@ const SPARK_FALLBACKS = [
   'Diskusikan dengan teman sebangkumu: apakah kalian sampai pada kesimpulan yang sama? Mengapa?',
 ];
 
-/** Spark dari AI bila ada; sonst fallback statis deterministik berdasar materi. */
+/** Pola spark AI yang membocorkan jawaban (terbukti di lapangan: "Jawabnya ada pada ..."). */
+const SPARK_LEAK_RE = /jawab(?:nya|an)?\s+(ada|adalah|yaitu|ialah|berada|terletak)/i;
+
+/** Spark dari AI bila aman; jika tidak, fallback statis deterministik berdasar materi. */
 function sparkFor(lkpd, materi) {
   const ai = String(lkpd?.spark ?? '').trim();
-  if (ai) return ai;
+  // Tolak spark yang membocorkan jawaban atau kepanjangan (prompt: maks 140).
+  if (ai && !SPARK_LEAK_RE.test(ai) && ai.length <= 220) return ai;
   const key = String(materi ?? '');
   return SPARK_FALLBACKS[key.length % SPARK_FALLBACKS.length];
 }

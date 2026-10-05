@@ -210,3 +210,21 @@ Setelah Claude menghasilkan desain: ia yang mengimplementasikan ke
 `student-renderer.js` + `document.css` + menyesuaikan/ menambah tes, lalu
 verifikasi (`npm run check` + print preview + LibreOffice) dan commit sendiri.
 
+## STATUS: diambil alih Opencode (user: Claude tidak reliable)
+
+Claude kembali dan mengerjakan redesign, tapi tidak menyelesaikannya secara
+formal (tanpa commit, tanpa kabar verifikasi). Opencode mengambil alih:
+me-review diff-nya (±485 baris), memverifikasi koherensi, dan commit sebagai
+`Redesign LKPD Claude: misi berpasangan via tabel, top tabel, closing refleksi`.
+
+Temuan review (semua beres, tidak ada perbaikan yang diperlukan):
+
+1. Penggantian grid → tabel berpasangan (`table.lkpd-pair`) konsisten dengan
+   temuan fragmentasi Chrome; CSS grid lama dihapus total tanpa sisa.
+2. Split print/docx dipertahankan dan DIPERLUAS (tabel, soal, spark, kop
+   masing-masing punya cabang mode). Tidak ada class tampilan di mode docx.
+3. Invarian anti-bocor utuh; suite 235/235 hijau termasuk 12 tes baru.
+4. Satu-satunya yang TERSISA dan tidak bisa diverifikasi oleh AI: cek visual
+   print preview (proporsi kartu berpasangan, page-break nyata) + buka DOCX
+   di LibreOffice. Itu tugas user sebelum push ke Vercel.
+

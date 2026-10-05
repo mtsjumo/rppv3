@@ -52,17 +52,22 @@ function writeLines(count = 3) {
 }
 
 /**
- * Awalan kalimat panduan menulis, digilir per kartu agar tidak monoton.
- * Generik dan aman (bukan jawaban), deterministik sehingga stabil di tes.
+ * Awalan kalimat menulis, digilir per misi agar tidak monoton.
+ * Generik dan aman (bukan jawaban); deterministik sehingga stabil di tes.
  */
-const GUIDE_STARTERS = [
-  'Menurut pengamatanku, … karena ….',
-  'Dari kegiatan ini aku menemukan bahwa ….',
+const MISSION_STARTERS = [
+  'Dari yang kuamati, … sehingga ….',
   'Langkah terpenting menurutku adalah … karena ….',
+  'Aku menemukan bahwa … dan buktinya ….',
+  'Yang berbeda dari dugaan awalku adalah ….',
+  'Jika …, maka …, sebab ….',
+  'Hal paling menarik dari misi ini adalah ….',
+  'Aku dan temanku sepakat bahwa … karena ….',
+  'Contoh dari kehidupan sehari-hari: ….',
 ];
 
-/** Checklist ringkas satu baris (tanpa kata "Jawaban:" agar lolos uji anti-bocor). */
-const GUIDE_CHECK = 'Cek: ☐ semua tugas terjawab ☐ ada bukti/gambar ☐ bisa dibaca teman';
+/** Pengantar bagian misi dan penutup (cek mandiri + refleksi): satu kali per lembar, bukan per kartu. */
+const MISSION_INTRO = 'Kerjakan misi berikut secara berurutan. Beri tanda pada kotak Selesai bila sudah.';
 
 /** Kop identitas siswa yang diisi tangan. */
 function nameBlock(labelNama = 'Nama') {
@@ -139,7 +144,7 @@ function renderStudentDiagnostik(dg, input, first) {
  * tabel utuh berarti membocorkan jawaban (bug nyata), jadi tidak ada lagi
  * fallback "biarkan utuh".
  */
-function studentComparisonTable(tabel) {
+function studentComparisonTable(tabel, mode = 'print') {
   if (!tabel?.data?.length) return '';
   const cols = tabel.kolom?.length ? tabel.kolom : deriveColumns(tabel.data);
   const keepable = cols.map(
@@ -158,20 +163,26 @@ function studentComparisonTable(tabel) {
       return `<tr>${tds}</tr>`;
     })
     .join('');
-  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  return `<table${mode === 'docx' ? '' : ' class="lkpd-table"'}><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-/** Pertanyaan LKPD tanpa jawaban, masing-masing diberi garis isian. */
-function studentQuestions(pertanyaan) {
+/**
+ * Pertanyaan LKPD tanpa jawaban. Cetak: garis tulis lentur (selebar halaman, tidak
+ * pernah terpotong). DOCX: deretan underscore (konverter DOCX buta border CSS).
+ */
+function studentQuestions(pertanyaan, mode = 'print') {
   const items = pertanyaan
     .map((q) => (typeof q === 'string' ? q : (q?.pertanyaan ?? q?.soal ?? '')))
     .filter((q) => String(q).trim());
   if (!items.length) return '';
-  return `<ol>${items.map((q) => `<li>${text(q)}${answerLines(3)}</li>`).join('')}</ol>`;
+  const lines = mode === 'docx' ? answerLines(3) : writeLines(3);
+  const cls = mode === 'docx' ? '' : ' class="lkpd-questions"';
+  return `<ol${cls}>${items.map((q) => `<li>${text(q)}${lines}</li>`).join('')}</ol>`;
 }
 
 function renderStudentLKPD(lkpd, input, first, mode = 'print') {
   if (!lkpd) return '';
+  const docx = mode === 'docx';
   const idn = lkpd.identitas || {};
   // Kop dirender terpisah (bukan di sheetHeader) agar bisa sejajar identitas.
   let html = sheetHeader('LEMBAR KERJA PESERTA DIDIK (LKPD)', input, {
@@ -180,52 +191,88 @@ function renderStudentLKPD(lkpd, input, first, mode = 'print') {
     kop: false,
   });
 
-  const kopNama = nameBlock('Nama / Kelompok');
-  const identitas = kvTable(
-    [
-      ['Mata Pelajaran', text(idn.mataPelajaran || input.mapel)],
-      ['Kelas/Semester', text(idn.kelasSemester || input.fase)],
-      ['Materi Pokok', text(idn.materiPokok || input.materi)],
-      ['Alokasi Waktu', text(idn.alokasiWaktu || input.alkok)],
-    ],
-    180
-  );
+  const identRows = [
+    ['Mata Pelajaran', text(idn.mataPelajaran || input.mapel)],
+    ['Kelas/Semester', text(idn.kelasSemester || input.fase)],
+    ['Materi Pokok', text(idn.materiPokok || input.materi)],
+    ['Alokasi Waktu', text(idn.alokasiWaktu || input.alkok)],
+  ];
 
-  if (mode === 'docx') {
-    // DOCX: susun vertikal linear (konverter tidak paham CSS grid).
-    html += kopNama + identitas;
+  if (docx) {
+    // DOCX: susun vertikal linear (konverter tidak paham CSS).
+    html += nameBlock('Nama / Kelompok') + kvTable(identRows, 180);
   } else {
-    // Print: kop + identitas bersebelahan agar ngeblend dengan kartu grid.
-    html += `<div class="lkpd-top"><div>${kopNama}</div><div>${identitas}</div></div>`;
+    html += lkpdTop(identRows);
   }
 
-  html += sparkBox(lkpd, input.materi);
+  html += sparkBox(lkpd, input.materi, mode);
 
   if (lkpd.tujuan?.length) {
-    html += `<div class="sub-header">Tujuan Pembelajaran</div>${list(
-      lkpd.tujuan,
-      'ol',
-      (i) => `<li>${text(i)}</li>`
-    )}`;
+    html += `<div class="sub-header${docx ? '' : ' lkpd-h'}">Tujuan Pembelajaran</div>`;
+    if (!docx) html += '<p class="lkpd-lead">Setelah mengerjakan LKPD ini, aku mampu:</p>';
+    html += list(lkpd.tujuan, 'ol', (i) => `<li>${text(i)}</li>`);
   }
 
-  // Mode DOCX: layout linear patuh (konverter DOCX tidak paham CSS grid).
-  // Mode print: kartu misi grid yang hidup.
-  if (mode === 'docx') html += renderLKPDActivitiesLinear(lkpd);
-  else html += renderLKPDActivitiesGrid(lkpd);
+  // DOCX: aktivitas linear. Cetak: kartu misi (berpasangan bila pendek, selebar halaman bila panjang).
+  html += docx ? renderLKPDActivitiesLinear(lkpd) : renderLKPDMissions(lkpd);
 
-  if (lkpd.tabelPerbandingan?.data?.length) {
+  const hasTable = !!lkpd.tabelPerbandingan?.data?.length;
+  if (hasTable) {
     const judul = lkpd.tabelPerbandingan.judul || `Tabel Perbandingan — ${input.materi || ''}`;
-    html += `<div class="sub-header">${escapeHtml(judul)}</div>`;
+    html += `<div class="sub-header${docx ? '' : ' lkpd-h'}">${escapeHtml(judul)}</div>`;
     html += `<p style="margin:4px 0;font-size:0.85rem;"><em>Lengkapi kolom yang masih kosong.</em></p>`;
-    html += studentComparisonTable(lkpd.tabelPerbandingan);
+    html += studentComparisonTable(lkpd.tabelPerbandingan, mode);
   }
 
   if (lkpd.pertanyaan?.length) {
-    const questions = studentQuestions(lkpd.pertanyaan);
-    if (questions) html += `<div class="sub-header">Pertanyaan Pemahaman</div>${questions}`;
+    const questions = studentQuestions(lkpd.pertanyaan, mode);
+    if (questions) {
+      html += `<div class="sub-header${docx ? '' : ' lkpd-h'}">Pertanyaan Pemahaman</div>${questions}`;
+    }
   }
+
+  html += lkpdClosing(hasTable, mode);
   return html;
+}
+
+/** Kepala cetak: kolom isian siswa + identitas berdampingan (tabel, bukan grid). */
+function lkpdTop(identRows) {
+  const fill = ['Nama / Kelompok', 'Kelas', 'No. Absen', 'Tanggal']
+    .map((l) => `<tr><td class="lbl"><strong>${l}</strong></td><td class="fill"></td></tr>`)
+    .join('');
+  const ident = identRows
+    .map(([l, v]) => `<tr><td class="lbl">${escapeHtml(l)}</td><td>${v}</td></tr>`)
+    .join('');
+  return `<table class="lkpd-top"><tr>
+    <td><table class="lkpd-fill">${fill}</table></td>
+    <td><table class="lkpd-ident">${ident}</table></td>
+  </tr></table>`;
+}
+
+/**
+ * Penutup lembar: cek mandiri + refleksi, SATU kali di akhir (bukan diulang di tiap
+ * kartu). Teks generik dan tidak memuat jawaban.
+ */
+function lkpdClosing(hasTable, mode) {
+  const checks = [
+    'Semua misi sudah kukerjakan',
+    ...(hasTable ? ['Tabel sudah lengkap'] : []),
+    'Tulisanku bisa dibaca temanku',
+    'Namaku sudah tertulis',
+  ];
+  const checkHtml = checks.map((c) => `<div>☐ ${c}</div>`).join('');
+  if (mode === 'docx') {
+    return `<div class="sub-header">Cek Mandiri dan Refleksi</div>${checkHtml}
+      <p style="margin:8px 0 0;"><strong>Hari ini aku paling paham tentang:</strong></p>${answerLines(1)}
+      <p style="margin:8px 0 0;"><strong>Aku masih ingin bertanya tentang:</strong></p>${answerLines(1)}`;
+  }
+  return `<div class="sub-header lkpd-h">Cek Mandiri dan Refleksi</div>
+    <table class="lkpd-closing"><tr>
+      <td><strong>Cek mandiri</strong>${checkHtml}</td>
+      <td><strong>Refleksi</strong>
+        <div class="lkpd-ask">Hari ini aku paling paham tentang:</div>${writeLines(1)}
+        <div class="lkpd-ask">Aku masih ingin bertanya tentang:</div>${writeLines(1)}</td>
+    </tr></table>`;
 }
 
 /** Isi aktivitas versi linear (DOCX-safe): dipakai untuk mode 'docx'. */
@@ -264,43 +311,83 @@ function sparkFor(lkpd, materi) {
   return SPARK_FALLBACKS[key.length % SPARK_FALLBACKS.length];
 }
 
-function sparkBox(lkpd, materi) {
-  return `<div class="spark-box"><strong>⚡ Momen Spark:</strong> ${escapeHtml(
-    sparkFor(lkpd, materi)
-  )}</div>`;
+/**
+ * Kotak Momen Spark. Cetak: label + pemantik + satu garis untuk dugaan awal siswa.
+ * DOCX: satu paragraf (format lama, tanpa CSS).
+ */
+function sparkBox(lkpd, materi, mode = 'print') {
+  const spark = escapeHtml(sparkFor(lkpd, materi));
+  if (mode === 'docx') {
+    return `<div class="spark-box"><strong>⚡ Momen Spark:</strong> ${spark}</div>`;
+  }
+  return `<div class="spark-box"><strong class="spark-label">⚡ Momen Spark:</strong> <span class="spark-text">${spark}</span>
+    <div class="lkpd-ask">Dugaan awalku:</div>${writeLines(1)}</div>`;
 }
 
-/** Satu kartu misi: nama + deskripsi + tugas + panduan menulis + ruang hasil. */
-function activityCard(a, i) {
+/**
+ * Misi panjang (banyak teks atau tugas) tampil selebar halaman; misi pendek boleh
+ * berdampingan. Ambang ini hanya heuristik tata letak, bukan batas isi.
+ */
+function isWideMission(a) {
+  const tugas = Array.isArray(a.tugas) ? a.tugas : [];
+  const bulk = [a.nama, a.deskripsi, ...tugas].map((x) => String(x ?? '')).join(' ');
+  return bulk.length > 240 || tugas.length > 3;
+}
+
+/** Jumlah garis tulis sebanding dengan banyaknya tugas (tidak ada ruang kosong raksasa). */
+function resultLineCount(a, wide) {
+  const tugas = Array.isArray(a.tugas) ? a.tugas.length : 0;
+  return Math.min(wide ? 6 : 4, Math.max(3, tugas + 2));
+}
+
+/** Satu kartu misi: nomor + judul + kotak selesai, isi tugas, awalan menulis, ruang hasil. */
+function missionCard(a, i, { wide, lines }) {
   const tugas =
     Array.isArray(a.tugas) && a.tugas.length
       ? list(a.tugas, 'ol', (t) => `<li>${text(t)}</li>`)
       : '';
-  const starter = GUIDE_STARTERS[i % GUIDE_STARTERS.length];
-  // Kartu panjang (banyak teks/tugas) tampil penuh agar ruang mengerjakan cukup;
-  // kartu pendek boleh bersebelahan. Grid tidak selalu dua kolom.
-  const bulk = [a.nama, a.deskripsi, ...(Array.isArray(a.tugas) ? a.tugas : [])]
-    .map((x) => String(x ?? ''))
-    .join(' ');
-  const wide = bulk.length > 280 || (Array.isArray(a.tugas) && a.tugas.length > 4);
+  const starter = MISSION_STARTERS[i % MISSION_STARTERS.length];
   return `<div class="lkpd-card${wide ? ' lkpd-card--wide' : ''}">
-    <div class="lkpd-card-head"><span class="lkpd-card-num">Misi ${i + 1}</span><span>${text(
+    <div class="lkpd-card-head"><span class="lkpd-card-num">Misi ${i + 1}</span><span class="lkpd-card-title">${text(
       a.nama || `Aktivitas ${i + 1}`
-    )}</span></div>
+    )}</span><span class="lkpd-card-done">☐ Selesai</span></div>
     <div class="lkpd-card-body">${a.deskripsi ? para(a.deskripsi) : ''}${tugas}</div>
-    <div class="lkpd-guide"><strong>Tulis dengan kalimatmu:</strong> awali dengan
-      <em>“${starter}”</em>
-      <div class="lkpd-check">${GUIDE_CHECK}</div>
-    </div>
-    <div class="lkpd-result"><strong>Hasil / catatan:</strong></div>${writeLines(wide ? 5 : 3)}
+    <div class="lkpd-starter"><strong>Mulai menulis:</strong> <em>“${starter}”</em></div>
+    <div class="lkpd-result"><strong>Hasil / catatan</strong></div>${writeLines(lines)}
   </div>`;
 }
 
-/** Isi aktivitas versi grid (mode print/PDF). Kartu tidak dipecah antar halaman. */
-function renderLKPDActivitiesGrid(lkpd) {
-  const list_ = lkpd.aktivitas || [];
-  if (!list_.length) return '';
-  return `<div class="lkpd-grid">${list_.map((a, i) => activityCard(a, i)).join('')}</div>`;
+/**
+ * Susunan misi untuk cetak. Dua misi pendek berurutan dimasukkan ke SATU baris tabel
+ * (dua sel); misi panjang, atau misi pendek yang tidak punya pasangan, selebar halaman.
+ *
+ * Sengaja memakai tabel/blok biasa, bukan CSS grid atau flex: grid 2 kolom terbukti
+ * merusak pecahan halaman di Chrome (halaman kosong), sedangkan baris tabel dan blok
+ * dengan break-inside: avoid terpecah andal. Kartu tidak pernah terbelah antar halaman.
+ */
+function renderLKPDMissions(lkpd) {
+  const acts = lkpd.aktivitas || [];
+  if (!acts.length) return '';
+  const items = acts.map((a, i) => ({ a, i, wide: isWideMission(a) }));
+
+  let body = '';
+  for (let k = 0; k < items.length; ) {
+    const cur = items[k];
+    const next = items[k + 1];
+    if (!cur.wide && next && !next.wide) {
+      // Pasangan: jumlah garis disamakan supaya tinggi kedua kartu berdekatan.
+      const lines = Math.max(resultLineCount(cur.a, false), resultLineCount(next.a, false));
+      body += `<table class="lkpd-pair"><tr>
+        <td>${missionCard(cur.a, cur.i, { wide: false, lines })}</td>
+        <td>${missionCard(next.a, next.i, { wide: false, lines })}</td>
+      </tr></table>`;
+      k += 2;
+    } else {
+      body += missionCard(cur.a, cur.i, { wide: true, lines: resultLineCount(cur.a, true) });
+      k += 1;
+    }
+  }
+  return `<div class="sub-header lkpd-h">Misi Belajar</div><p class="lkpd-lead">${MISSION_INTRO}</p><div class="lkpd-missions">${body}</div>`;
 }
 
 function renderStudentEvaluasi(ev, input, first) {

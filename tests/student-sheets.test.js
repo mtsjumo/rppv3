@@ -7,6 +7,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import * as F from '../src/prompts/fewshot.js';
 import { buildAnswerKeyHTML, buildStudentSheetsHTML } from '../src/render/student-renderer.js';
@@ -23,6 +25,8 @@ globalThis.localStorage = {
     return mem.size;
   },
 };
+
+const ROOT = path.resolve(import.meta.dirname, '..');
 
 const INPUT = {
   madrasah: 'MTs Uji',
@@ -158,7 +162,11 @@ test('pertanyaan LKPD tampil tanpa jawaban dan diberi garis isian', () => {
   const first = data.lampiran.lkpd.pertanyaan[0];
   const question = typeof first === 'string' ? first : first.pertanyaan;
   assert.ok(stripTags(html).includes(question.slice(0, 25)));
-  assert.ok(html.includes('_'.repeat(70)), 'harus ada garis isian');
+  // Cetak: garis lentur (tidak terpotong). DOCX: deretan underscore (konverter buta border CSS).
+  assert.ok(html.includes('lkpd-questions') && html.includes('write-line'), 'cetak: garis lentur');
+  const docx = buildStudentSheetsHTML(data, INPUT, 'docx');
+  assert.ok(docx.includes('_'.repeat(70)), 'docx: garis isian underscore');
+  assert.doesNotMatch(docx, /write-line/, 'docx tidak boleh memakai garis CSS');
 });
 
 test('soal tanpa pilihan (uraian) diberi garis isian, bukan lembar jawaban kosong', () => {
@@ -250,14 +258,15 @@ test('spark AI yang membocorkan jawaban diganti fallback', () => {
   assert.ok(plain.includes('Momen Spark'), 'fallback pengganti harus tampil');
 });
 
-test('mode print: LKPD berupa kartu misi grid berpemandu', () => {
+test('mode print: LKPD berupa kartu misi berpemandu (tabel/blok, bukan grid)', () => {
   const html = buildStudentSheetsHTML(sampleData(), INPUT, 'print');
-  assert.ok(html.includes('lkpd-grid'), 'grid hilang di mode print');
   assert.ok(html.includes('Misi 1'), 'nomor misi hilang');
-  assert.ok(html.includes('Tulis dengan kalimatmu'), 'panduan menulis hilang');
+  assert.ok(html.includes('Mulai menulis'), 'awalan menulis hilang');
   assert.ok(html.includes('write-line'), 'garis lentur hilang di kartu');
-  const grid = html.slice(html.indexOf('lkpd-grid'), html.indexOf('Tabel Perbandingan'));
-  assert.doesNotMatch(grid, /_{10,}/, 'garis underscore terpotong tidak boleh ada di kartu');
+  assert.ok(html.includes('lkpd-card'), 'kartu hilang');
+  assert.doesNotMatch(html, /lkpd-grid/, 'grid sudah dibuang dari desain cetak');
+  const missions = html.slice(html.indexOf('lkpd-missions'), html.indexOf('Tabel Perbandingan'));
+  assert.doesNotMatch(missions, /_{10,}/, 'garis underscore terpotong tidak boleh ada di kartu');
 });
 
 test('awalan panduan digilir antar kartu agar tidak monoton', () => {
@@ -285,17 +294,18 @@ test('mode print: kepala LKPD grid kop + identitas, tanpa duplikat kop', () => {
   );
 });
 
-test('mode docx: kepala LKPD vertikal tanpa grid', () => {
+test('mode docx: kepala LKPD vertikal tanpa kelas tampilan', () => {
   const html = buildStudentSheetsHTML(sampleData(), INPUT, 'docx');
-  assert.doesNotMatch(html, /lkpd-top|lkpd-grid|lkpd-card/, 'class grid bocor ke DOCX');
+  assert.doesNotMatch(html, /lkpd-|write-line|spark-label|spark-text/, 'kelas cetak bocor ke DOCX');
   assert.ok(html.includes('Nama / Kelompok'), 'kop hilang di mode docx');
 });
 
-test('mode docx: LKPD linear tanpa CSS grid', () => {
+test('mode docx: LKPD linear tanpa kelas tampilan', () => {
   const html = buildStudentSheetsHTML(sampleData(), INPUT, 'docx');
-  assert.doesNotMatch(html, /lkpd-grid|lkpd-card/, 'class grid bocor ke DOCX');
+  assert.doesNotMatch(html, /lkpd-|write-line/, 'kelas cetak bocor ke DOCX');
   assert.ok(html.includes('Hasil / catatan'), 'isi linear hilang di mode docx');
   assert.ok(html.includes('Momen Spark'), 'spark harus tetap ada di DOCX');
+  assert.ok(html.includes('Cek Mandiri dan Refleksi'), 'penutup harus ada juga di DOCX');
 });
 
 test('kartu misi dan panduan tidak membocorkan jawaban', () => {
@@ -303,15 +313,113 @@ test('kartu misi dan panduan tidak membocorkan jawaban', () => {
   assert.doesNotMatch(plain, /Jawaban\s*:/, 'teks "Jawaban:" bocor dari kartu/panduan');
 });
 
-test('kartu panjang tampil penuh dengan ruang tulis lebih banyak', () => {
+const missionHtml = (aktivitas, mode = 'print') => {
   const data = sampleData();
-  data.lampiran.lkpd.aktivitas = [
-    { nama: 'Singkat', deskripsi: 'Amati.', tugas: ['t1'] },
-    { nama: 'Panjang', deskripsi: 'x'.repeat(400), tugas: ['t1', 't2', 't3', 't4', 't5'] },
-  ];
-  const html = buildStudentSheetsHTML(data, INPUT, 'print');
-  assert.ok(html.includes('lkpd-card--wide'), 'kartu panjang harus penuh');
-  assert.equal((html.match(/lkpd-card--wide/g) || []).length, 1, 'kartu pendek jangan ikut penuh');
-  const wide = html.slice(html.indexOf('lkpd-card--wide'));
-  assert.equal((wide.match(/write-line/g) || []).length, 5, 'kartu penuh harus punya 5 garis');
+  data.lampiran.lkpd.aktivitas = aktivitas;
+  return buildStudentSheetsHTML(data, INPUT, mode);
+};
+const count = (html, re) => (html.match(re) || []).length;
+const SHORT = (n) => ({ nama: `Pendek ${n}`, deskripsi: 'Amati.', tugas: ['t1'] });
+const LONG = { nama: 'Panjang', deskripsi: 'x'.repeat(400), tugas: ['t1', 't2', 't3', 't4', 't5'] };
+
+test('misi pendek berurutan berpasangan dalam satu baris tabel', () => {
+  const html = missionHtml([SHORT(1), SHORT(2)]);
+  assert.equal(count(html, /class="lkpd-pair"/g), 1, 'dua misi pendek = satu pasangan');
+  assert.equal(count(html, /class="lkpd-card"/g), 2);
+  assert.equal(count(html, /lkpd-card--wide/g), 0);
+});
+
+test('misi panjang selebar halaman, tidak masuk pasangan', () => {
+  const html = missionHtml([SHORT(1), LONG]);
+  assert.equal(count(html, /class="lkpd-pair"/g), 0);
+  assert.equal(count(html, /lkpd-card--wide/g), 2, 'misi pendek tanpa pasangan juga selebar halaman');
+});
+
+test('misi pendek tanpa pasangan dibuat selebar halaman (tidak menyisakan separuh halaman kosong)', () => {
+  const html = missionHtml([SHORT(1), SHORT(2), SHORT(3)]);
+  assert.equal(count(html, /class="lkpd-pair"/g), 1);
+  assert.equal(count(html, /lkpd-card--wide/g), 1, 'misi ketiga sendirian → penuh');
+});
+
+test('ruang menulis sebanding dengan tugas, tidak pernah raksasa', () => {
+  const lines = (html) => count(html, /class="write-line"/g);
+  const base = lines(missionHtml([]));
+  const one = lines(missionHtml([LONG])) - base; // misi panjang (5 tugas)
+  assert.equal(one, 6, 'misi panjang: tugas + 2 dibatasi 6 garis');
+  const manyTasks = { nama: 'Banyak', tugas: Array.from({ length: 12 }, (_, i) => `t${i}`) };
+  assert.ok(lines(missionHtml([manyTasks])) - base <= 6, 'garis tidak boleh lebih dari 6 per misi');
+  const small = lines(missionHtml([{ nama: 'Kecil', tugas: ['t1'] }])) - base;
+  assert.equal(small, 3, 'misi sangat pendek: minimal 3 garis');
+});
+
+test('awalan menulis bervariasi antar misi dan tidak mengulang teks yang sama di tiap kartu', () => {
+  const html = missionHtml(Array.from({ length: 6 }, (_, i) => SHORT(i + 1)));
+  const starters = [...html.matchAll(/“(.+?)”/g)].map((m) => m[1]);
+  assert.equal(starters.length, 6);
+  assert.equal(new Set(starters).size, 6, 'tiap misi punya awalan berbeda');
+  // Teks yang dulu diulang di setiap kartu kini tampil paling banyak sekali per lembar.
+  assert.equal(count(html, /Tulisanku bisa dibaca temanku/g), 1, 'cek mandiri hanya sekali per lembar');
+  assert.equal(count(html, /Cek mandiri/g), 1);
+});
+
+test('cek mandiri memuat butir tabel hanya bila LKPD memang punya tabel', () => {
+  const withTable = buildStudentSheetsHTML(sampleData(), INPUT);
+  assert.ok(withTable.includes('Tabel sudah lengkap'));
+  const data = sampleData();
+  delete data.lampiran.lkpd.tabelPerbandingan;
+  assert.ok(!buildStudentSheetsHTML(data, INPUT).includes('Tabel sudah lengkap'));
+});
+
+test('tabel perbandingan: kelas lkpd-table hanya di mode cetak', () => {
+  assert.ok(buildStudentSheetsHTML(sampleData(), INPUT, 'print').includes('class="lkpd-table"'));
+  assert.doesNotMatch(buildStudentSheetsHTML(sampleData(), INPUT, 'docx'), /lkpd-table/);
+});
+
+test('mode default adalah print (parameter mode opsional)', () => {
+  const data = sampleData();
+  assert.equal(buildStudentSheetsHTML(data, INPUT), buildStudentSheetsHTML(data, INPUT, 'print'));
+});
+
+test('spark opsional: tanpa field spark tidak error di kedua mode', () => {
+  const data = sampleData();
+  delete data.lampiran.lkpd.spark;
+  for (const mode of ['print', 'docx']) {
+    assert.ok(buildStudentSheetsHTML(data, INPUT, mode).includes('Momen Spark'));
+  }
+});
+
+test('teks siswa/AI di kartu misi di-escape (tidak bisa menyisipkan HTML)', () => {
+  const html = missionHtml([{ nama: '<img src=x onerror=alert(1)>', deskripsi: '<script>x</script>', tugas: ['<b>t</b>'] }]);
+  assert.doesNotMatch(html, /<img src=x|<script>|<b>t<\/b>/);
+});
+
+test('seluruh isi misi tetap ada (nama, deskripsi, semua tugas)', () => {
+  const plain = stripTags(
+    missionHtml([{ nama: 'Uji Coba', deskripsi: 'Amati tabel dengan teliti.', tugas: ['Hitung selisihnya', 'Catat hasil'] }])
+  );
+  for (const s of ['Uji Coba', 'Amati tabel dengan teliti.', 'Hitung selisihnya', 'Catat hasil']) {
+    assert.ok(plain.includes(s), `hilang: ${s}`);
+  }
+});
+
+test('tidak ada kunci/jawaban di seluruh keluaran cetak maupun DOCX', () => {
+  for (const mode of ['print', 'docx']) {
+    const plain = stripTags(buildStudentSheetsHTML(sampleData(), INPUT, mode));
+    assert.doesNotMatch(plain, /Jawaban\s*:|Kunci\s*:|Penskoran/i, `bocor di mode ${mode}`);
+  }
+});
+
+test('CSS cetak LKPD tidak memakai grid; flex hanya untuk kepala kartu', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'src/styles/document.css'), 'utf8');
+  const lkpdCss = css.slice(css.indexOf('LKPD siswa (mode cetak)'), css.indexOf('Responsif preview'));
+  assert.ok(lkpdCss.length > 500, 'blok CSS LKPD tidak ditemukan');
+  assert.doesNotMatch(lkpdCss, /display:\s*grid|grid-template|grid-column/, 'grid merusak fragmentasi cetak Chrome');
+  const flexUses = lkpdCss.match(/display:\s*flex/g) || [];
+  assert.equal(flexUses.length, 1, 'flex hanya boleh dipakai di .lkpd-card-head');
+  assert.match(lkpdCss, /\.lkpd-card-head\s*\{[^}]*display:\s*flex/);
+  // Kartu, pasangan, dan baris tabel tidak boleh terbelah antar halaman.
+  for (const sel of ['.lkpd-card', 'table.lkpd-pair', 'table.lkpd-table tr']) {
+    const block = lkpdCss.match(new RegExp(`${sel.replace(/\./g, '\\.')}\\s*\\{[^}]*\\}`))?.[0] ?? '';
+    assert.match(block, /break-inside:\s*avoid/, `${sel} harus break-inside: avoid`);
+  }
 });

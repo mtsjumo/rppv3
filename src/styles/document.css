@@ -135,80 +135,237 @@
   page-break-before: always;
 }
 
-/* ----- LKPD siswa mode print: kartu misi grid + kotak spark -----
-   Ramah printer B&W: mengandalkan border/nomor, bukan warna. */
+/* ----- LKPD siswa (mode cetak): kartu misi, kotak spark, tabel isian -----
+   PRINSIP
+   1. Susunan halaman memakai tabel/blok biasa, BUKAN CSS grid atau flex. Grid 2 kolom
+      terbukti merusak fragmentasi cetak Chrome (halaman kosong). Baris tabel dan blok
+      dengan break-inside: avoid terpecah andal di semua mesin cetak.
+   2. Ramah printer B&W: pembeda makna hanya border, nomor, dan pola (bukan warna);
+      latar hanya abu-abu sangat muda agar hemat tinta.
+   3. Tanpa font/gambar/CDN eksternal.
+   4. DOCX tidak memakai satu pun kelas di bawah ini (konverter hanya paham markup
+      sederhana); semua kelas lkpd-* dan spark-* hanya dibuat oleh mode cetak. */
+
+/* Kepala: kolom isian siswa + identitas, berdampingan. */
+.rpp-document table.lkpd-top {
+  border: none;
+  margin: 8px 0 4px;
+  table-layout: fixed;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.rpp-document table.lkpd-top > tbody > tr > td {
+  border: none;
+  background: none;
+  padding: 0 8px 0 0;
+  width: 50%;
+  vertical-align: top;
+}
+.rpp-document table.lkpd-top > tbody > tr > td + td {
+  padding: 0 0 0 8px;
+}
+.rpp-document table.lkpd-fill,
+.rpp-document table.lkpd-ident {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.rpp-document table.lkpd-fill > tbody > tr > td,
+.rpp-document table.lkpd-ident > tbody > tr > td {
+  border: none;
+  background: none;
+  padding: 3px 0;
+  vertical-align: bottom;
+}
+.rpp-document table.lkpd-fill td.lbl {
+  width: 42%;
+  white-space: nowrap;
+}
+.rpp-document table.lkpd-fill td.fill {
+  border-bottom: 1px solid #444;
+  height: 7mm;
+}
+.rpp-document table.lkpd-ident td.lbl {
+  width: 38%;
+  font-weight: 600;
+}
+.rpp-document table.lkpd-ident > tbody > tr > td {
+  border-bottom: 1px dotted #888;
+}
+
+/* Judul bagian LKPD: garis tegas, tanpa blok warna; selalu menempel pada isinya. */
+.rpp-document .lkpd-h {
+  background: none;
+  color: #000;
+  border-top: 2px solid #333;
+  border-bottom: 1px solid #999;
+  padding: 3px 0;
+  margin: 14px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.rpp-document .lkpd-lead {
+  margin: 2px 0 6px;
+  font-size: 0.9em;
+  font-style: italic;
+}
+
+/* Momen Spark. */
 .rpp-document .spark-box {
   border: 2px dashed #333;
   border-radius: 8px;
-  padding: 6px 12px;
-  margin: 8px 0;
-  background: #f7f7f7;
-}
-.rpp-document .lkpd-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 4px 0;
-  /* Grid boleh terpotong antar kartu saat pindah halaman (hemat kertas);
-     yang tidak boleh terbelah adalah isi tiap kartu. */
-  break-inside: auto;
-}
-/* Satu-satunya kartu tampil penuh (tidak setengah halaman kosong). */
-.rpp-document .lkpd-card:only-child {
-  grid-column: 1 / -1;
-}
-/* Kartu panjang (banyak teks/tugas) selalu penuh agar ruang mengerjakan cukup. */
-.rpp-document .lkpd-card--wide {
-  grid-column: 1 / -1;
-}
-/* Kepala LKPD: kop nama + identitas bersebelahan (print & layar).
-   Pendek sehingga aman dari fragmentasi cetak. */
-.rpp-document .lkpd-top {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 8px 0;
+  padding: 6px 12px 8px;
+  margin: 10px 0;
+  background: #fff;
   break-inside: avoid;
+  page-break-inside: avoid;
+}
+.rpp-document .spark-text {
+  font-style: italic;
+}
+.rpp-document .lkpd-ask {
+  margin-top: 4px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+/* Misi: dua kartu pendek berdampingan dalam satu baris tabel; kartu panjang selebar halaman. */
+.rpp-document .lkpd-missions {
+  margin: 4px 0;
+}
+.rpp-document table.lkpd-pair {
+  border: none;
+  margin: 0 0 10px;
+  table-layout: fixed;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.rpp-document table.lkpd-pair > tbody > tr > td {
+  border: none;
+  background: none;
+  width: 50%;
+  padding: 0 5px 0 0;
+  vertical-align: top;
+}
+.rpp-document table.lkpd-pair > tbody > tr > td + td {
+  padding: 0 0 0 5px;
 }
 .rpp-document .lkpd-card {
-  border: 2px solid #333;
-  border-radius: 8px;
+  border: 1.5px solid #333;
+  border-radius: 6px;
+  margin: 0 0 10px;
+  padding-bottom: 6px;
   break-inside: avoid;
   page-break-inside: avoid;
   overflow: hidden;
+}
+.rpp-document table.lkpd-pair .lkpd-card {
+  margin-bottom: 0;
 }
 .rpp-document .lkpd-card-head {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1.5px solid #333;
+  background: #f1f1f1;
   font-weight: 700;
-  border-bottom: 2px solid #333;
-  padding: 6px 10px;
-  background: #eee;
 }
 .rpp-document .lkpd-card-num {
-  border: 2px solid #333;
+  border: 1.5px solid #333;
   border-radius: 999px;
-  padding: 0 10px;
+  padding: 0 9px;
+  background: #fff;
+  font-size: 0.8em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.rpp-document .lkpd-card-title {
+  flex: 1;
+}
+.rpp-document .lkpd-card-done {
+  font-size: 0.75em;
+  font-weight: 400;
   white-space: nowrap;
 }
 .rpp-document .lkpd-card-body {
-  padding: 8px 10px 0;
+  padding: 6px 9px 0;
+  font-size: 0.92em;
 }
-/* Garis tulis lentur: selebar kolom, untuk area sempit (kartu grid). */
-.rpp-document .write-line {
-  border-bottom: 1px solid #555;
-  height: 2em;
+.rpp-document .lkpd-card-body p {
+  margin: 0 0 4px;
 }
-.rpp-document .lkpd-guide {
-  margin: 8px 10px 0;
-  padding: 6px 10px;
-  border-left: 4px solid #333;
+.rpp-document .lkpd-starter {
+  margin: 6px 9px 0;
+  padding: 3px 8px;
+  border-left: 3px solid #333;
   background: #f7f7f7;
+  font-size: 0.8em;
+}
+.rpp-document .lkpd-result {
+  margin: 6px 9px 0;
   font-size: 0.85em;
 }
-.rpp-document .lkpd-check {
-  margin-top: 4px;
+.rpp-document .lkpd-card .write-line {
+  margin: 0 9px;
+}
+
+/* Garis tulis lentur: selebar wadahnya, tidak pernah terpotong seperti deretan underscore. */
+.rpp-document .write-line {
+  border-bottom: 0.6px solid #666;
+  height: 7.5mm;
+}
+
+/* Tabel perbandingan untuk dilengkapi siswa. */
+.rpp-document table.lkpd-table {
+  margin: 6px 0;
+}
+.rpp-document table.lkpd-table th {
+  background: #eee;
+  color: #000;
+  border: 1.5px solid #333;
+}
+.rpp-document table.lkpd-table td,
+.rpp-document table.lkpd-table tr:nth-child(even) td {
+  border: 1px solid #333;
+  background: none;
+  height: 13mm;
+  vertical-align: middle;
+}
+.rpp-document table.lkpd-table thead {
+  display: table-header-group;
+}
+.rpp-document table.lkpd-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Pertanyaan pemahaman. */
+.rpp-document ol.lkpd-questions {
+  padding-left: 22px;
+}
+.rpp-document ol.lkpd-questions > li {
+  margin: 0 0 8px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+/* Cek mandiri + refleksi (satu kali di akhir lembar). */
+.rpp-document table.lkpd-closing {
+  border: none;
+  table-layout: fixed;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.rpp-document table.lkpd-closing > tbody > tr > td {
+  border: 1.5px solid #333;
+  background: none;
+  width: 50%;
+  padding: 6px 10px;
+  vertical-align: top;
+  font-size: 0.85rem;
 }
 
 /* ----- Responsif preview ----- */
@@ -267,15 +424,6 @@
   }
   .no-print {
     display: none !important;
-  }
-  /* LKPD di kertas: selalu satu kolom. Grid 2 kolom tidak terfragmentasi
-     dengan andal di mode cetak (dorong beramai-ramai → halaman kosong).
-     Layar tetap grid; yang dicetak yang rapi. */
-  .rpp-document .lkpd-grid {
-    display: block;
-  }
-  .rpp-document .lkpd-card {
-    margin-bottom: 12px;
   }
   /* Judul seksi menempel pada isi di bawahnya (tidak yatim di ujung halaman). */
   .rpp-document .sub-header,
